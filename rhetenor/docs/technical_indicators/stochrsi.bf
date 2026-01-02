@@ -44,7 +44,7 @@ trigger(signal: Signal<Float>, k: Int, d: Int) : Signal<Float> = {
     trigger : Signal<Float> = add(x=upper_trigger, y=lower_trigger)
 
     # When %k < 0.2 or %k > 0.8, Updates output value to %d
-    result : Signal<Float> = tradewhen(signal=d_smooth, enter=trigger, exit=-1.)
+    result : Signal<Float> = tradewhen(signal=d_smooth, enter=trigger, exit=-1., period=252)
 } 
 
 stoch_rsi_triggered(signal: Signal<Float>, n: Int) : Signal<Float> = {

@@ -21,5 +21,5 @@ adl(high : Signal<Float>, low : Signal<Float>, close : Signal<Float>, volume : S
     money_flow_volume : Signal<Float> = multiply(x=money_flow_multiplier, y=volume)
 
     # ADL = cumulative sum of Money‑Flow Volume.
-    result = ts_mean_linear(signal=money_flow_volume, period=period)
+    result = ts_decay_linear(signal=money_flow_volume, period=period)
 }

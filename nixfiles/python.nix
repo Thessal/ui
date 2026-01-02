@@ -3,13 +3,13 @@ pkgs.python313.override {
   packageOverrides = self: super: {
     butterflow = self.buildPythonPackage rec {
       pname = "butterflow";
-      version = "0.1.0";
+      version = "0.1.1";
 
       src = pkgs.fetchFromGitHub {
         owner = "Thessal";
         repo = "butterflow";
         rev = "main";
-        sha256 = "sha256-VyIRRzKju7BjTixQJQdUos78mC0duweYdI8U+i5ld6c=";
+        sha256 = "sha256-CPnqm3Fggl1uYWUyXfWECN0A6cKGIzqzeXbroX5RcUU=";
       };
 
       nativeBuildInputs = [ self.hatchling ];
