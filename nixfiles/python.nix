@@ -30,7 +30,7 @@ pkgs.python313.override {
         owner = "Thessal";
         repo = "transpiler";
         rev = "main";
-        sha256 = "sha256-9Z8SqpvRRRxKNCtTpc7UBbdLgyOCnM8tM4A7IVOKmjU="; 
+        sha256 = "sha256-UNuNWX4HY0pdZ6yY1rA8fwSjGgHOKS/FQfVGJIbJZgc=";
       };
 
       nativeBuildInputs = [ self.hatchling ];
