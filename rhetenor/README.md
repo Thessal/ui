@@ -2,10 +2,26 @@
 
 ## Functions
 * Performance analysis
-* Selection
-* Combination
+* TODO: Selection
+* TODO: Combination
 
-## Quality Benchmark (without RAG; see docs)
+## Benchmark
+
+* HBM2, Without Tensor Core
+
+| Model | #/hr | Sharpe |
+|------:|-----:|-------:|
+| gpt-oss:120b | 2.53 | 0.79 |
+| deepseek:120b | TBD | TBD  |
+
+* LPDDR5X, With Tensor Core
+
+| Model | #/hr | Sharpe |
+|------:|-----:|-------:|
+| gpt-oss:120b | TBD | TBD |
+| deepseek:120b | TBD | TBD |
+
+## Benchmark Detail (GPT-OSS; without RAG; see docs)
 Task : Technical indicator generation using [Morpho](https://github.com/Thessal/transpiler), DOW 30 stocks, 1-minute OHLCV  
 
 * Alpha quality by information type
