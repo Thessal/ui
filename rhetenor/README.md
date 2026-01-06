@@ -9,17 +9,17 @@
 
 * HBM2, Without Tensor Core
 
-| Model | #/hr | Sharpe |
-|------:|-----:|-------:|
-| gpt-oss:120b | 2.53 | 0.79 |
-| deepseek:120b | TBD | TBD  |
+| Model | Base #/hr | Valid #/hr | Avg Sharpe | Add Value / hr |
+|------:|----------:|-----------:|-----------:|---------------:|
+| gpt-oss:120b  | 720.00 |   2.53 |    0.79 | TBD |
+| deepseek-r1:70b | 5.60 | ~ 3.36 | ~ -0.81 | TBD |
 
 * LPDDR5X, With Tensor Core
 
 | Model | #/hr | Sharpe |
 |------:|-----:|-------:|
 | gpt-oss:120b | TBD | TBD |
-| deepseek:120b | TBD | TBD |
+| deepseek-r1:70b | TBD | TBD |
 
 ## Benchmark Detail (GPT-OSS; without RAG; see docs)
 Task : Technical indicator generation using [Morpho](https://github.com/Thessal/transpiler), DOW 30 stocks, 1-minute OHLCV  
