@@ -1,0 +1,5 @@
+Ease of movement (EMV) is an indicator used in technical analysis to relate an asset's price change to its volume. Ease of Movement was developed by Richard W. Arms, Jr. and highlights the relationship between volume and price changes and is particularly useful for assessing the strength of a trend. High positive values indicate the price is increasing on low volume: strong negative values indicate the price is dropping on low volume. The moving average of the indicator can be added to act as a trigger line, which is similar to other indicators like the MACD.
+The Ease of Movement indicator shows the relationship between price and volume, and it's often used to assess the strength of an underlying trend. Ease of Movement calculates how easily a price can move up or down, based on momentum. The calculation subtracts yesterday's average price from today's average price and divides the difference by volume.
+
+
+== References ==

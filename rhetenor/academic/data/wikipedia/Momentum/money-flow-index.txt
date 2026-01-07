@@ -1,0 +1,309 @@
+The money flow index (MFI) is an oscillator that ranges from 0 to 100. It is used to show the money flow (an approximation of the dollar value of a day's trading) over several days.
+
+
+== The steps to calculate the money flow index over N days ==
+
+
+=== Step 1: Calculate the typical price ===
+The typical price for each day is the average of high price, the low price and the closing price.
+
+  
+    
+      
+        t
+        y
+        p
+        i
+        c
+        a
+        l
+         
+        p
+        r
+        i
+        c
+        e
+        =
+        
+          
+            
+              h
+              i
+              g
+              h
+              +
+              l
+              o
+              w
+              +
+              c
+              l
+              o
+              s
+              e
+            
+            3
+          
+        
+      
+    
+    {\displaystyle typical\ price={high+low+close \over 3}}
+  
+
+
+=== Step 2: Calculate the positive and negative money flow ===
+The money flow for a certain day is typical price multiplied by volume on that day.
+
+  
+    
+      
+        m
+        o
+        n
+        e
+        y
+         
+        f
+        l
+        o
+        w
+        =
+        t
+        y
+        p
+        i
+        c
+        a
+        l
+         
+        p
+        r
+        i
+        c
+        e
+        ×
+        v
+        o
+        l
+        u
+        m
+        e
+      
+    
+    {\displaystyle money\ flow=typical\ price\times volume}
+  
+
+The money flow is divided into positive and negative money flow.
+
+Positive money flow is calculated by adding the money flow of all the days where the typical price is higher than the previous day's typical price.
+Negative money flow is calculated by adding the money flow of all the days where the typical price is lower than the previous day's typical price.
+If typical price is unchanged then that day is discarded.
+
+
+=== Step 3: Calculate the money ratio ===
+The money ratio is the ratio of positive money flow to negative money flow.
+
+  
+    
+      
+        m
+        o
+        n
+        e
+        y
+         
+        r
+        a
+        t
+        i
+        o
+        =
+        
+          
+            
+              p
+              o
+              s
+              i
+              t
+              i
+              v
+              e
+               
+              m
+              o
+              n
+              e
+              y
+               
+              f
+              l
+              o
+              w
+            
+            
+              n
+              e
+              g
+              a
+              t
+              i
+              v
+              e
+               
+              m
+              o
+              n
+              e
+              y
+               
+              f
+              l
+              o
+              w
+            
+          
+        
+      
+    
+    {\displaystyle money\ ratio={positive\ money\ flow \over negative\ money\ flow}}
+  
+
+
+=== Step 4: Calculate the money flow index ===
+
+  
+    
+      
+        M
+        F
+        I
+        =
+        100
+        −
+        
+          
+            100
+            
+              1
+              +
+              m
+              o
+              n
+              e
+              y
+               
+              r
+              a
+              t
+              i
+              o
+            
+          
+        
+      
+    
+    {\displaystyle MFI=100-{100 \over 1+money\ ratio}}
+  
+
+The money flow index can be expressed equivalently as follows.  
+
+  
+    
+      
+        M
+        F
+        I
+        =
+        100
+        ×
+        
+          
+            
+              p
+              o
+              s
+              i
+              t
+              i
+              v
+              e
+               
+              m
+              o
+              n
+              e
+              y
+               
+              f
+              l
+              o
+              w
+            
+            
+              p
+              o
+              s
+              i
+              t
+              i
+              v
+              e
+               
+              m
+              o
+              n
+              e
+              y
+              f
+              l
+              o
+              w
+              +
+              n
+              e
+              g
+              a
+              t
+              i
+              v
+              e
+               
+              m
+              o
+              n
+              e
+              y
+               
+              f
+              l
+              o
+              w
+            
+          
+        
+      
+    
+    {\displaystyle MFI=100\times {positive\ money\ flow \over positive\ moneyflow+negative\ money\ flow}}
+  
+
+This form more clearly shows what the MFI is a percentage of positive money flow to total money flow.
+
+
+== Uses ==
+MFI is used to measure the "enthusiasm" of the market. In other words, the money flow index shows how much a stock was traded.
+A value of 80 or more is generally considered overbought, a value of 20 or less oversold.  
+Divergences between MFI and price action are also considered significant; for instance, if price makes a new rally high but the MFI high is less than its previous high then that may indicate a weak advance that is likely to reverse.
+MFI is constructed in a similar fashion to the relative strength index (RSI).  Both look at up days against total up and down days, but the scale, i.e. what is accumulated on those days, is volume (or dollar volume approximation rather) for the MFI, as opposed to price change amounts for the RSI.
+Marek and Čadková (2020) studied different settings of MFI parameters. The testing was randomised in time and companies (e.g., Apple, ExxonMobil, IBM, Microsoft) and showed that MFI can beat simple buy-and-hold strategy; therefore, it can be useful for trading. They showed that settings of MFI which are usually recommended in the literature offer no advantage for trading and it is necessary to optimize settings for each single stock.
+
+
+== Similar indicators ==
+Other price × volume indicators:
+
+On-balance volume
+Price and volume trend
+Accumulation/distribution index
+
+
+== References ==

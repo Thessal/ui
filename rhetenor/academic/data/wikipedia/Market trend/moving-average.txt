@@ -1,0 +1,165 @@
+{{Short description|Type of statistical measure over subsets of a dataset}}
+{{Other uses|Moving-average model|Moving average (disambiguation)}}
+[[File:Lissage sinus bruite moyenne glissante.svg|thumb|Smoothing of a noisy sine (blue curve) with a moving average (red curve).]]
+
+In [[statistics]], a '''moving average''' ('''rolling average''' or '''running average''' or '''moving mean'''<ref>[http://www.waterboards.ca.gov/waterrights/water_issues/programs/bay_delta/docs/cmnt091412/sldmwa/booth_et_al_2006.pdf Hydrologic Variability of the Cosumnes River Floodplain] (Booth et al., San Francisco Estuary and Watershed Science, Volume 4, Issue 2, 2006)</ref> or '''rolling mean''') is a calculation to analyze data points by creating a series of [[average]]s of different selections of the full data set. Variations include: [[#Simple moving average|simple]], [[#Cumulative average|cumulative]], or [[#Weighted moving average|weighted]] forms.
+
+Mathematically, a moving average is a type of [[convolution]]. Thus in [[signal processing]] it is viewed as a [[low-pass filter|low-pass]] [[finite impulse response]] filter. Because the [[boxcar function]] outlines its filter coefficients, it is called a '''boxcar filter'''. It is sometimes followed by [[Downsampling (signal processing)|downsampling]].
+
+Given a series of numbers and a fixed subset size, the first element of the moving average is obtained by taking the average of the initial fixed subset of the number series. Then the subset is modified by "shifting forward"; that is, excluding the first number of the series and including the next value in the series.
+
+A moving average is commonly used with [[time series]] data to smooth out short-term fluctuations and highlight longer-term trends or cycles - in this case the calculation is sometimes called a '''time average'''. The threshold between short-term and long-term depends on the application, and the parameters of the moving average will be set accordingly. It is also used in [[economics]] to examine gross domestic product, employment or other macroeconomic time series. When used with non-time series data, a moving average filters higher frequency components without any specific connection to time, although typically some kind of ordering is implied. Viewed simplistically it can be regarded as smoothing the data.
+
+==History==
+
+The technique of moving averages was invented by the [[Bank of England]] in 1833 to conceal the state of its bullion reserves.<ref>{{Cite book |title=Statistical Visions in Time |last=Klein |first=Judy L. |date=1997-10-28 |publisher=[[Cambridge University Press]] |isbn=9780521420464 |pages=88}}</ref>
+
+==Simple moving average==
+[[File: Moving Average Types comparison - Simple and Exponential.png|thumb]]
+In financial applications a '''simple moving average''' ('''SMA''') is the unweighted [[arithmetic mean|mean]] of the previous <math>k</math> data-points. However, in science and engineering, the mean is normally taken from an equal number of data on either side of a central value. This ensures that variations in the mean are aligned with the variations in the data rather than being shifted in time. {{Anchor|algorithm}}An example of a simple equally weighted running mean is the mean over the last <math>k</math> entries of a data-set containing <math>n</math> entries. Let those data-points be <math>p_1, p_2, \dots, p_n</math>. This could be closing prices of a stock. The mean over the last <math>k</math> data-points (days in this example) is denoted as <math>\textit{SMA}_{k}</math> and calculated as:
+<math display="block">\begin{align}
+  \textit{SMA}_{k} &= \frac{p_{n-k+1} + p_{n-k+2} + \cdots + p_{n}}{k} \\
+  &= \frac{1}{k} \sum_{i=n-k+1}^{n} p_{i}
+\end{align}</math>
+
+When calculating the next mean <math>\textit{SMA}_{k,\text{next}}</math> with the same sampling width <math>k</math> the range from <math> n - k + 2 </math> to <math> n+1 </math> is considered. A new value <math>p_{n+1}</math> comes into the sum and the oldest value <math>p_{n-k+1}</math> drops out. This simplifies the calculations by reusing the previous mean <math>\textit{SMA}_{k,\text{prev}}</math>.
+<math display="block">
+\begin{align}
+   \textit{SMA}_{k, \text{next}} &= \frac{1}{k} \sum_{i=n-k+2}^{n+1} p_{i} \\
+              &= \frac{1}{k} \Big( \underbrace{ p_{n-k+2} + p_{n-k+3} + \dots + p_{n} + p_{n+1} }_{ \sum_{i=n-k+2}^{n+1} p_{i} } + \underbrace{ p_{n-k+1} - p_{n-k+1} }_{= 0} \Big) \\
+              &= \underbrace{ \frac{1}{k} \Big( p_{n-k+1} + p_{n-k+2} + \dots + p_{n} \Big) }_{= \textit{SMA}_{k, \text{prev}}} - \frac{p_{n-k+1}}{k} + \frac{p_{n+1}}{k} \\
+              &= \textit{SMA}_{k, \text{prev}} + \frac{1}{k} \Big( p_{n+1} - p_{n-k+1} \Big)
+\end{align}
+</math>
+This means that the moving average filter can be computed quite cheaply on real time data with a FIFO / [[circular buffer]] and only 3 arithmetic steps.
+
+During the initial filling of the FIFO / circular buffer the sampling window is equal to the data-set size thus <math> k = n </math> and the average calculation is performed as a [[#Cumulative average|cumulative moving average]].
+
+The period selected (<math>k</math>) depends on the type of movement of interest, such as short, intermediate, or long-term. 
+
+If the data used are not centered around the mean, a simple moving average lags behind the latest datum by half the sample width. An SMA can also be disproportionately influenced by old data dropping out or new data coming in. One characteristic of the SMA is that if the data has a periodic fluctuation, then applying an SMA of that period will eliminate that variation (the average always containing one complete cycle). But a perfectly regular cycle is rarely encountered.<ref>''Statistical Analysis'', Ya-lun Chou, Holt International, 1975, {{ISBN|0-03-089422-0}}, section 17.9.</ref>
+
+For a number of applications, it is advantageous to avoid the shifting induced by using only "past" data. Hence a '''central moving average''' can be computed, using data equally spaced on either side of the point in the series where the mean is calculated.<ref>The derivation and properties of the simple central moving average are given in full at [[Savitzky–Golay filter]].</ref> This requires using an odd number of points in the sample window.
+
+A major drawback of the SMA is that it lets through a significant amount of the signal shorter than the window length. This can lead to unexpected artifacts, such as peaks in the smoothed result appearing where there were troughs in the data. It also leads to the result being less smooth than expected since some of the higher frequencies are not properly removed.
+
+Its frequency response is a type of low-pass filter called [[Sinc filter#Frequency-domain sinc|sinc-in-frequency]].
+
+== Continuous moving average ==
+The continuous moving average of an integrable function <math>f: \mathbb{R} \rightarrow \mathbb{R} </math> is defined via integration as:
+:<math>
+\begin{array}{rl} 
+   M_{f, \varepsilon}: \mathbb{R} &\rightarrow \mathbb{R} \\ 
+   x &\mapsto \displaystyle \frac{1}{2\,\varepsilon} \int_{x -\varepsilon}^{x +\varepsilon} f(t) \, dt 
+\end{array}  </math>
+where the <math>\varepsilon</math> environment <math> [ x-\varepsilon, x+\varepsilon] </math> around <math>x</math> defines the intensity of smoothing of the graph of the integrable function. A larger <math> \varepsilon > 0 </math> smoothes the source graph of the function (blue) <math>f</math> more. The animations below show the moving average as animation in dependency of different values for  <math> \varepsilon > 0 </math>. The fraction <math>\frac{1}{2\, \varepsilon} </math> is used, because <math> 2\, \varepsilon </math> is the interval width for the integral. Naturally, <math>\lim_{\varepsilon\to0} M_{f,\ \varepsilon}=f </math> by [[fundamental theorem of calculus]] and [[L'Hôpital's rule]]. 
+
+<gallery widths=240>
+File:Moving average sin polynom mov av.gif|Continuous moving average sine and polynom - visualization of the smoothing with a small interval for integration
+File:Moving average sine and polynom with a larger interval.gif|Continuous moving average sine and polynom - visualization of the smoothing with a larger interval for integration
+File:Moving average sine and polynom - visualization of interval width.gif|Animation showing the impact of interval width and smoothing by moving average.
+</gallery>
+
+==Cumulative average==
+In a '''cumulative average''' ('''CA'''), the data arrive in an ordered datum stream, and the user would like to get the average of all of the data up until the current datum. For example, an investor may want the average price of all of the stock transactions for a particular stock up until the current time. As each new transaction occurs, the average price at the time of the transaction can be calculated for all of the transactions up to that point using the cumulative average, typically an equally weighted [[average]] of the sequence of ''n'' values <math>x_1. \ldots, x_n</math> up to the current time:
+<math display="block">\textit{CA}_n = {{x_1 + \cdots + x_n} \over n}\,.</math>
+
+The brute-force method to calculate this would be to store all of the data and calculate the sum and divide by the number of points every time a new datum arrived. However, it is possible to simply update cumulative average as a new value, <math>x_{n+1}</math> becomes available, using the formula
+<math display="block">\textit{CA}_{n+1} = {{x_{n+1} + n \cdot \textit{CA}_n} \over {n+1}}.</math>
+
+Thus the current cumulative average for a new datum is equal to the previous cumulative average, times ''n'', plus the latest datum, all divided by the number of points received so far, ''n''+1. When all of the data arrive ({{math|1=''n'' = ''N''}}), then the cumulative average will equal the final average. It is also possible to store a running total of the data as well as the number of points and dividing the total by the number of points to get the CA each time a new datum arrives.
+
+The derivation of the cumulative average formula is straightforward. Using
+<math display="block">x_1 + \cdots + x_n = n \cdot \textit{CA}_n</math>
+and similarly for {{math|''n'' + 1}}, it is seen that
+<math display="block">x_{n+1} = (x_1 + \cdots + x_{n+1}) - (x_1 + \cdots + x_n)</math>
+<math display="block">x_{n+1} = (n + 1) \cdot \textit{CA}_{n + 1} - n \cdot \textit{CA}_n </math>
+
+Solving this equation for <math>\textit{CA}_{n+1}</math> results in
+<math display="block">\begin{align}
+\textit{CA}_{n+1} & = {x_{n+1} + n \cdot \textit{CA}_n \over {n+1}} \\[6pt]
+& = {x_{n+1} + (n + 1 - 1) \cdot \textit{CA}_n \over {n+1}} \\[6pt]
+& = {(n + 1) \cdot \textit{CA}_n + x_{n+1} - \textit{CA}_n \over {n+1}} \\[6pt]
+& = {\textit{CA}_n} + {{x_{n+1} - \textit{CA}_n} \over {n+1}}
+\end{align}</math>
+
+==Weighted moving average==
+A weighted average is an average that has multiplying factors to give different weights to data at different positions in the sample window. Mathematically, the weighted moving average is the [[convolution]] of the data with a fixed weighting function. One application is removing [[pixelization]] from a digital graphical image. This is also known as [[Anti-aliasing]] {{Citation needed|date=February 2018}}
+
+In the financial field, and more specifically in the analyses of financial data, a '''weighted moving average''' (WMA) has the specific meaning of weights that decrease in arithmetical progression.<ref>{{cite web|title=Weighted Moving Averages: The Basics |url=http://www.investopedia.com/articles/technical/060401.asp |publisher=Investopedia}}</ref> In an ''n''-day WMA the latest day has weight ''n'', the second latest <math>n-1</math>, etc., down to one.
+
+<math display="block">\text{WMA}_{M} = { n p_{M} + (n-1) p_{M-1} + \cdots + 2 p_{((M-n)+2)} + p_{((M-n)+1)} \over n + (n-1) + \cdots + 2 + 1}</math>
+
+[[Image:Weighted moving average weights N=15.svg|thumb|right|WMA weights ''n'' = 15]]
+
+The denominator is a [[triangle number]] equal to <math display="inline">\frac{n(n + 1)}{2}.</math> In the more general case the denominator will always be the sum of the individual weights.
+
+When calculating the WMA across successive values, the difference between the numerators of <math>\text{WMA}_{M+1}</math> and <math>\text{WMA}_{M}</math> is <math>np_{M+1} - p_{M} - \dots - p_{M-n+1}</math>. If we denote the sum <math>p_{M} + \dots + p_{M-n+1}</math> by <math>\text{Total}_{M}</math>, then
+
+<math display="block">\begin{align}
+    \text{Total}_{M+1} &= \text{Total}_M + p_{M+1} - p_{M-n+1} \\[3pt]
+\text{Numerator}_{M+1} &= \text{Numerator}_M + n p_{M+1} - \text{Total}_M \\[3pt]
+      \text{WMA}_{M+1} &= { \text{Numerator}_{M+1} \over n + (n-1) + \cdots + 2 + 1}
+\end{align}</math>
+
+The graph at the right shows how the weights decrease, from highest weight for the most recent data, down to zero.  It can be compared to the weights in the exponential moving average which follows.
+
+=={{anchor|Exponential}}Exponential moving average==
+{{main|Exponential smoothing}}
+{{further|EWMA chart}}
+An '''exponential moving average (EMA)''', also known as an '''exponentially weighted moving average (EWMA)''',<ref>{{cite web |url=http://lorien.ncl.ac.uk/ming/filter/filewma.htm |title=DEALING WITH MEASUREMENT NOISE - Averaging Filter |access-date=2010-10-26 |url-status=dead |archive-url=https://web.archive.org/web/20100329135531/http://lorien.ncl.ac.uk/ming/filter/filewma.htm |archive-date=2010-03-29 }}</ref> is a first-order [[infinite impulse response]] filter that applies weighting factors which decrease [[Exponential decay|exponentially]]. The weighting for each older [[data|datum]] decreases exponentially, never reaching zero. 
+This formulation is according to Hunter (1986).<ref>[http://www.itl.nist.gov/div898/handbook/pmc/section4/pmc431.htm NIST/SEMATECH e-Handbook of Statistical Methods: Single Exponential Smoothing] at the [[National Institute of Standards and Technology]]</ref>
+
+There is also a multivariate implementation of EWMA, known as MEWMA.<ref>{{cite journal |last1=Yeh |first1=A. |last2=Lin |first2=D. |last3=Zhou |first3=H. |last4=Venkataramani |first4=C. |title=A multivariate exponentially weighted moving average control chart for monitoring process variability |journal=[[Journal of Applied Statistics]] |date=2003 |volume=30 |issue=5 |pages=507–536 |doi=10.1080/0266476032000053655 |bibcode=2003JApSt..30..507Y |url=https://www.stat.purdue.edu/~dkjlin/documents/publications/2003/2003_AppStat1.pdf |access-date=16 January 2025 |issn=0266-4763}}</ref>
+
+==Other weightings==
+Other weighting systems are used occasionally – for example, in share trading a '''volume weighting''' will weight each time period in proportion to its trading volume.
+
+A further weighting, used by actuaries, is Spencer's 15-Point Moving Average<ref>[http://mathworld.wolfram.com/Spencers15-PointMovingAverage.html Spencer's 15-Point Moving Average — from Wolfram MathWorld<!-- Bot generated title -->]</ref> (a central moving average). Its symmetric weight coefficients are [−3, −6, −5, 3, 21, 46, 67, 74, 67, 46, 21, 3, −5, −6, −3], which factors as {{sfrac|[1, 1, 1, 1]×[1, 1, 1, 1]×[1, 1, 1, 1, 1]×[−3, 3, 4, 3, −3]|320}} and leaves samples of any quadratic or cubic polynomial unchanged.<ref>Rob J Hyndman. "[https://robjhyndman.com/papers/movingaverage.pdf Moving averages]". 2009-11-08. Accessed 2020-08-20.</ref><ref>Aditya Guntuboyina. "[https://www.stat.berkeley.edu/~aditya/Site/Statistics_153;_Spring_2012_files/Spring2012Statistics153LectureThree.pdf Statistics 153 (Time Series) : Lecture Three]". 2012-01-24. Accessed 2024-01-07.</ref>
+
+Outside the world of finance, weighted running means have many forms and applications. Each weighting function or "kernel" has its own characteristics. In engineering and science the frequency and phase response of the filter is often of primary importance in understanding the desired and undesired distortions that a particular filter will apply to the data.
+
+A mean does not just "smooth" the data. A mean is a form of low-pass filter. The effects of the particular filter used should be understood in order to make an appropriate choice.{{cn|date=August 2025}}
+
+==Moving median==
+From a statistical point of view, the moving average, when used to estimate the underlying trend in a time series, is susceptible to rare events such as rapid shocks or other anomalies. A more robust estimate of the trend is the '''simple moving median''' over ''n'' time points:
+<math display="block">\widetilde{p}_\text{SM} = \text{Median}( p_M, p_{M-1}, \ldots, p_{M-n+1} )</math>
+where the [[median]] is found by, for example, sorting the values inside the brackets and finding the value in the middle.  For larger values of ''n'', the median can be efficiently computed by updating an [[Skip list#Indexable skiplist|indexable skiplist]].<ref>{{Cite web | url=http://code.activestate.com/recipes/576930/ |title = Efficient Running Median using an Indexable Skiplist « Python recipes « ActiveState Code}}</ref>
+
+Statistically, the moving average is optimal for recovering the underlying trend of the time series when the fluctuations about the trend are [[normal distribution|normally distributed]]. However, the normal distribution does not place high probability on very large deviations from the trend which explains why such deviations will have a disproportionately large effect on the trend estimate. It can be shown that if the fluctuations are instead assumed to be [[Laplace distribution|Laplace distributed]], then the moving median is statistically optimal.<ref>G.R. Arce, "Nonlinear Signal Processing: A Statistical Approach", Wiley:New Jersey, US, 2005.</ref> For a given variance, the Laplace distribution places higher probability on rare events than does the normal, which explains why the moving median tolerates shocks better than the moving mean.
+
+When the simple moving median above is central, the smoothing is identical to the [[median filter]] which has applications in, for example, image signal processing. The Moving Median is a more robust alternative to the Moving Average when it comes to estimating the underlying trend in a time series. While the Moving Average is optimal for recovering the trend if the fluctuations around the trend are normally distributed, it is susceptible to the impact of rare events such as rapid shocks or anomalies. In contrast, the Moving Median, which is found by sorting the values inside the time window and finding the value in the middle, is more resistant to the impact of such rare events. This is because, for a given variance, the Laplace distribution, which the Moving Median assumes, places higher probability on rare events than the normal distribution that the Moving Average assumes. As a result, the Moving Median provides a more reliable and stable estimate of the underlying trend even when the time series is affected by large deviations from the trend. Additionally, the Moving Median smoothing is identical to the Median Filter, which has various applications in image signal processing.
+
+==Moving average regression model==
+{{Main|Moving-average model}}In a [[Moving average model|moving average regression model]], a variable of interest is assumed to be a weighted moving average of unobserved independent error terms; the weights in the moving average are parameters to be estimated.
+
+Those two concepts are often confused due to their name, but while they share many similarities, they represent distinct methods and are used in very different contexts.
+
+==See also==
+{{commons category|Moving averages}}
+*[[Exponential smoothing]]
+*[[Local regression]] (LOESS and LOWESS)
+*[[Kernel smoothing]]
+*[[MACD|Moving average convergence/divergence indicator]]
+*[[Martingale (probability theory)]]
+*[[Moving average crossover]]
+*[[Moving least squares]]
+*[[Rising moving average]]
+*[[Rolling hash]]
+*[[Running total]]
+*[[Savitzky–Golay filter]]
+*[[Window function]]
+*[[Zero lag exponential moving average]]
+
+==References==
+{{reflist|30em}}
+
+{{statistics}}
+{{technical analysis}}
+{{Quantitative forecasting methods}}
+
+{{DEFAULTSORT:Moving Average}}
+[[Category:Statistical charts and diagrams]]
+[[Category:Time series]]
+[[Category:Chart overlays]]
+[[Category:Technical analysis]]

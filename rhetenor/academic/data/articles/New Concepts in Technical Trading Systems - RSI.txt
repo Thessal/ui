@@ -1,0 +1,283 @@
+SECTION VI
+
+THE RELATIVE STRENGTH INDEX
+
+The RELATIVE STRENGTH INDEX, RS|, isa
+tool which can add a new dimension to chart in-
+terpretation when plotted in conjunction with a
+daily bar chart. Some of these interpretative fac-
+tors are:
+
+TOPS and BOTTOMS are indicated when
+the RSI goes above 70 or drops below 30.
+
+CHART FORMATIONS which often show up
+graphically on the RSl may not be apparent
+on the bar chart.
+
+FAILURE SWINGS above 70 or below 30 on
+the RSI scale are strong indications of
+market reversals.
+
+SUPPORT and RESISTANCE often show up
+clearly on the RSI| before becoming ap-
+parent on the bar chart.
+
+DIVERGENCE between the RSI and price
+action on the chart is a very strong indica-
+tion that a market turning point is imminent.
+
+Before taking up the equation for calcu-
+lating the Relative Strength Index, let's examine
+briefly the momentum concept upon which the
+RSI is based.
+
+The Momentum Osclllator Concept
+
+One of the most useful tools employed by
+many technicians is the momentum oscillator.
+The momentum oscillator measures the velocity
+of directional price movement. When the price
+moves up very rapidly, at some point it is con-
+sidered to be overbought; when it moves down
+very rapidly, at some point it is considered to be
+oversold. In either case, a reaction or reversal is
+imminent. The slope of the momentum oscillator
+is directly proportional to the velocity of the
+move. The distance traveled up or down by the
+momentum oscillator is proportional to the
+magnitude of the move.
+
+63
+
+The momentum oscillator is usually charac-
+terized by a line on a chart drawn in two dimen-
+sions. The ‘Y’ axis (vertical) represents
+magnitude or distance the indicator moves; the
+‘X’ axis (horizontal) represents time. The momen-
+tum oscillator drawn in this manner is charac-
+terized by the fact that it moves very rapidly at
+market turning points and tends to slow down as
+the market continues the directional move.
+
+Suppose we are using the close price to
+calculate the oscillator and the price is moving
+up daily by exactly the same increment from
+close to close. At some point, the oscillator
+begins to flatten out and eventually becomes a
+horizontal line. When this occurs, if the price
+begins to level out, the oscillator will begin to
+descend.
+
+Let’s look at this concept using a simple os-
+cillator expressed in terms of the price today
+minus the price ‘X’ number of days ago. In this
+example, we will use the price today minus the
+price ten days ago. The oscillator is measured
+from a zero line. If the price ten days ago were
+higher than the price today, then the oscillator
+value is minus; conversely, if today’s price were
+higher than the price ten days ago, then the os-
+cillator value is plus.
+
+The easiest way to illustrate the interaction
+between price movement and oscillator move-
+ment is to take a straight line-price relationship
+and plot the oscillator points based on this
+relationship.
+
+In Fig. 6.1, we begin on Day 10 when the
+close price is 48.50. The price ten days ago, on
+Day 1, is 50.75. Utilizing a ten day oscillator, we
+take today’s price of 48.50, subtract the price ten
+days ago, 50.75, and the result, —2.25, is the os-
+cillator value. This oscillator value of —2.25 is
+plotted below the zero line. By following this
+
+% NEW CONCERTS N TECHRICAL TRADING SYSTEMS
+
+_1—
+-2- c o e o
+51~ _
+50~ -_"-
+49~ --"'—
+48 = " -
+47 = S TR T T T |
+a4 & s 10 12
+
+OSCILLATOR CURVE
+
+- PRICE CURVE
+
+Fig. 6.1
+
+procedure for
+cillator curve.
+
+each day, we develop the os-
+
+The oscillator curve developed in this
+hypothetical situation is very interesting. As the
+price moves down by the same increment each
+day between Days 10 and 14, the oscillator curve
+is a horizontal line. On Day 15, the price turns up
+by 25 points yet the oscillator turns up by 50
+points. The oscillator is increasing twice as fast
+as the price. The oscillator continues this rate of
+movement until Day 23 when its value becomes a
+constant although the price continues to move
+up at the same rate.
+
+On Day 29, another very interesting thing
+happens. The price levels out at 51.00, yet the os-
+cillator begins to go down, If the price continues
+to move horizontally, the oscillator will continue
+to descend until the tenth day at which time both
+the oscillator and the .price will be moving
+horizontally. '
+
+Note the interaction of the oscillator curve
+and the price curve. The oscillator appears to be
+one step ahead of the price; the reason being
+that the oscillator, in effect, is measuring the rate
+of change of price movement. Between Days 14
+and 23, the oscillator shows that the price rate of
+change is very fast because the direction of the
+price is changing from down to up. Once the
+price of ten days ago has bottomed out and star-
+ted up, then the rate of change slows down
+because the increments of change are measured
+in one direction only.
+
+The oscillator can be an excellent technical
+tool for the trader who understands its inherent
+characteristics; however, there are three
+problems encountered in developing a
+meaningful oscillator.
+
+The first problem is erratic movement within
+the general oscillator configuration. As an exam-
+ple of this, using a ten day oscillator, suppose
+
+64
+
+BREMRIRL FOAARIANFTFITCS ABE WITORAIRITEN B 0 TOFU A FnARAS CABHELTI B v -
+that ten days ago the price moved limit down
+from the previous day. Now, suppose that today,
+the price closed the same as yesterday. When we
+subtract the price ten days ago from the price to-
+day, we will get an erroneously high value for the
+oscillator today. To overcome this problem, there
+must be some way to dampen or smooth out the
+extreme points used to calculate the oscillator.
+
+The second problem characteristic of os-
+cillators is the scale to use for the ‘Y’ axis. In other
+words, how high is high and how low is low? The
+scale will also change with each commodity be-
+ing charted. To overcome this problem, there
+must be some common denominator to apply to
+all commodities so the amplitude of the oscillator
+is relative and meaningful.
+
+The third problem is the necessity of having
+to keep up with enormous amounts of data. This
+is the least of the three problems; however, it can
+become burdensome to the trader who is follow-
+ing several commodities with an oscillator
+technique.
+
+The solution to these three problems is in-
+
+corporated in the indicator which we will call THE
+RELATIVE STRENGTH INDEX.
+
+The Relative Strength
+index Equation
+
+The equation for the Relative Strength In-
+dex, RS, is:
+
+100_[ 100 ]
+1 + RS
+
+RS Average of 14 day’s closes UP
+
+]
+
+RSI
+
+Average of 14 day’s closes DOWN
+
+For the first calculation of the Relative
+Strength Index, RSI, we need the previous 14
+day’s close prices. From then on, we need only
+the previous day’s data. The initial RSI is
+calculated as follows:
+
+(1) Obtain the sum of the UP closes for the
+previous 14 days and divide this sum by 14.
+This is the average UP close.
+
+65
+
+(2) Obtain the sum of the DOWN closes for
+the previous 14 days and divide this sum by
+14. This is the average DOWN close.
+
+(3) Divide the average UP close by the
+average DOWN close. This is the Relative
+Strength (RS).
+
+(4) Add 1.00 to the RS.
+
+(5) Divide the result obtained in Step 4 into
+100.
+
+(6) Subtract the result obtained in Step 5
+from 100. This is the first RSI.
+
+From this point on, it is only necessary to
+use the previous average UP close and the
+previous average DOWN close in the calculation
+of the next RSI. This procedure, which incor-
+porates the dampening or smoothing factor into
+the equation, is as follows:
+
+(1) To obtain the next average UP close:
+Multiply the previous average UP close by
+13, add to this amount today’'s UP close (if
+any) and divide the total by 14.
+
+(2) To obtain the next average DOWN
+close:
+
+Multiply the previous average DOWN close
+by 13, add to this amount today’'s DOWN
+close (if any) and divide the total by 14.
+
+Steps (3), (4), (5) and (6) are the same as for
+the initial RSI.
+
+An easy way to keep up with the RSI on a
+daily basis is to use a ten column worksheet, Fig.
+6.2.
+
+Column #1 is the date.
+Column #2 is the close price for the day.
+
+Column #3 is the amount the price closed UP
+from the previous day.
+(For example, on Day 2, the price
+closed UP 2.00 from Day 1. Entry is
+made in Column #3 only if the price
+closed UP from the previous day.)
+
+Column #4 is the amount the price closed
+DOWN from the previous day.
+(For example, on Day 8, the price
+closed DOWN 1.57 from the close on
+Day 7. Entry is made in column #4
+
+S NEW OOMOESTS M TEAMMIR AT T 8N IMM fverwsan ——
+

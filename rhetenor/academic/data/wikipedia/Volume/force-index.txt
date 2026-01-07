@@ -1,0 +1,6 @@
+The force index (FI) is an indicator used in technical analysis to illustrate how strong the actual buying or selling pressure is. High positive values mean there is a strong rising trend, and low values signify a strong downward trend.
+The FI is calculated by multiplying the difference between the last and previous closing prices by the volume of the commodity, yielding a momentum scaled by the volume. The strength of the force is determined by a larger price change or by a larger volume.
+The FI was created by Alexander Elder.
+
+
+== References ==
