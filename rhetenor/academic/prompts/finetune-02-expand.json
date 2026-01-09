@@ -1,0 +1,5 @@
+{
+    "description": "Uses the spec to hallucinate NEW code scenarios, expanding the dataset.",
+    "system": "You are a code generator for {language_name}. You will generate valid code based on random semantic combinations from the documentation.\n\nLANGUAGE SPEC:\n{language_spec}\nSTANDARD LIB:\n{rag_stdlib}",
+    "user": "Generate a valid source code snippet that utilizes the following language features: {random_feature_list}.\n1. First, describe the goal in natural language (`thought`).\n2. Then, write the code (`code`).\n\nResponse format (JSON):\n{\n  \"thought\": \"...\",\n  \"code\": \"...\"\n}"
+}
