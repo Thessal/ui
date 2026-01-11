@@ -53,13 +53,15 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
 def hasher(data):
     return hashlib.sha1(data.encode('utf-8')).hexdigest()
 
+
 def check_exist(output_dir, output_name):
-    for ext in [".txt",".json"]:
+    for ext in [".txt", ".json"]:
         output_filename = f"{os.path.basename(output_name)}{ext}"
         output_path = os.path.join(output_dir, output_filename)
         if os.path.exists(output_path):
             return output_path
     return None
+
 
 def check_save(output_dir, output_name, content):
     ext = ".json" if type(content) == dict else ".txt"
