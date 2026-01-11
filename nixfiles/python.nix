@@ -3,13 +3,13 @@ pkgs.python313.override {
   packageOverrides = self: super: {
     butterflow = self.buildPythonPackage rec {
       pname = "butterflow";
-      version = "0.1.1";
+      version = "0.1.2";
 
       src = pkgs.fetchFromGitHub {
         owner = "Thessal";
         repo = "butterflow";
         rev = "main";
-        sha256 = "sha256-CPnqm3Fggl1uYWUyXfWECN0A6cKGIzqzeXbroX5RcUU=";
+        sha256 = "sha256-TG0AIdsnwBrh6UsmWJfJDqkdvvEbAjXqARfzHKhoRQA=";
       };
 
       nativeBuildInputs = [ self.hatchling ];
@@ -24,13 +24,13 @@ pkgs.python313.override {
     };
     morpho = self.buildPythonPackage rec {
       pname = "morpho";
-      version = "0.1.0";
+      version = "0.1.2";
 
       src = pkgs.fetchFromGitHub {
         owner = "Thessal";
         repo = "transpiler";
         rev = "main";
-        sha256 = "sha256-UNuNWX4HY0pdZ6yY1rA8fwSjGgHOKS/FQfVGJIbJZgc=";
+        sha256 = "sha256-Ci+3k1By4LCFFmGZRaq4NFCW6rsAH1LTWbgfqP6hVX0=";
       };
 
       nativeBuildInputs = [ self.hatchling ];

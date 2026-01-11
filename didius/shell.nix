@@ -5,7 +5,7 @@ let
 
   didiusPackage = python.pkgs.buildPythonPackage rec {
     pname = "didius"; 
-    version = "0.1.0"; 
+    version = "0.1.2"; 
     src = ./.; 
 
     buildInputs = with python.pkgs; [
