@@ -23,7 +23,7 @@ def expand():
     parser.add_argument("--n_stdlib_docs", type=int,
                         required=False, default=10)
     parser.add_argument("--temperature", type=float,
-                        required=False, default=0.8)
+                        required=False, default=1.0)
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
 

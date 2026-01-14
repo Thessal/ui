@@ -4,7 +4,8 @@ from typing import Dict
 from morpho.score import SemanticTeacher, SyntaxTeacher
 import argparse
 from finetune_util import hasher, load_stdlib_doc, query_ollama, check_save, check_exist
-import sys 
+import sys
+import random
 
 
 class Grader:
@@ -18,9 +19,11 @@ class Grader:
         pnl, scores_2, error_msg_2 = self.teacher_sem.score(graph)
         scores = scores_1 | scores_2
         error_msg = error_msg_1 + "\n" + error_msg_2
+        error_msg = "\n".join(set(error_msg.split("\n")))
         return scores, error_msg
 
-def adapter(grader, resp:Dict):
+
+def adapter(grader, resp: Dict):
     # Convert single chat (result of finetune-02) into chained history (format of finetune-03)
     content = resp["message"]["content"]
 
@@ -51,7 +54,8 @@ def adapter(grader, resp:Dict):
     }
     return info
 
-def score_summary(scores:Dict):
+
+def score_summary(scores: Dict):
     if scores["position_concentration"] == None:
         position_balance = 1.
     elif scores["position_concentration"] < 0.05:
@@ -65,30 +69,29 @@ def score_summary(scores:Dict):
 
     if scores["ret"] == None:
         information = 1.
-    elif abs(scores["ret"]/scores["std"]) < 0.001:
+    elif abs(scores["ret"]/(scores["std"]+scores["ret"]+1e-9)) < 0.001:
         information = 2.
-    elif abs(scores["ret"]/scores["std"]) < 0.01:
+    elif abs(scores["ret"]/(scores["std"]+scores["ret"]+1e-9)) < 0.01:
         information = 3.
-    elif abs(scores["ret"]/scores["std"]) < 0.03:
+    elif abs(scores["ret"]/(scores["std"]+scores["ret"]+1e-9)) < 0.03:
         information = 4.
-    elif abs(scores["ret"]/scores["std"]) >= 0.03:
+    elif abs(scores["ret"]/(scores["std"]+scores["ret"]+1e-9)) >= 0.03:
         information = 5.
     else:
         information = 1.
 
     if scores["tvr"] == None:
         turnover = 1.
-    elif (scores["tvr"] < 0.005) or ( 0.7 < scores["tvr"]):
-        turnover = 2. 
-    elif (scores["tvr"] < 0.01) or ( 0.4 < scores["tvr"]):
-        turnover = 3. 
+    elif (scores["tvr"] < 0.005) or (0.7 < scores["tvr"]):
+        turnover = 2.
+    elif (scores["tvr"] < 0.01) or (0.4 < scores["tvr"]):
+        turnover = 3.
     elif (scores["max_tvr"] / scores["tvr"] > 8):
-        turnover = 4. 
+        turnover = 4.
     elif (scores["max_tvr"] / scores["tvr"] <= 8):
         turnover = 5.
     else:
         turnover = 1.
-
 
     scores_summary = f"""syntax-lex : {scores['lex']}
 syntax-parse : {scores['parse']}
@@ -100,6 +103,7 @@ semantics-turnover : {turnover}
 """
     return scores_summary
 
+
 def improve(step2_result, grader, args, syntax, stdlib, prompt_config):
     # Improve and add it to the history
     system_context = prompt_config["system"]
@@ -110,9 +114,11 @@ def improve(step2_result, grader, args, syntax, stdlib, prompt_config):
     last_history = step2_result["history"][-1]
     code = last_history["code"]
     error_msg = last_history["code_error_msg"]
-    user_prompt = user_prompt.replace("{pseudocode}", step2_result["desired_response"])
+    user_prompt = user_prompt.replace(
+        "{pseudocode}", step2_result["desired_response"])
     user_prompt = user_prompt.replace("{code}", code)
-    user_prompt = user_prompt.replace("{quality_score}", score_summary(last_history["scores"]))
+    user_prompt = user_prompt.replace(
+        "{quality_score}", score_summary(last_history["scores"]))
     user_prompt = user_prompt.replace("{error_msg}", error_msg)
 
     resp = query_ollama(endpoint=args.endpoint, model=args.model,
@@ -137,7 +143,8 @@ def arg_parse():
     parser = argparse.ArgumentParser(
         description="Reverse-engineer Butterflow code into LLM query")
 
-    parser.add_argument("--input_path", type=str, required=True, default="./data/finetune-02/*.json")
+    parser.add_argument("--input_path", type=str, required=True,
+                        default="./data/finetune-02/*.json")
     parser.add_argument("--butterflow_syntax", type=str,
                         required=False, default="./butterflow/docs/syntax.txt")
     parser.add_argument("--butterflow_stdlib", type=str,
@@ -166,11 +173,13 @@ def arg_parse():
 
     return args, syntax, stdlib, prompt_config
 
+
 def main():
     grader = Grader()
     args, syntax, stdlib, prompt_config = arg_parse()
 
     files = glob(args.input_path)
+    random.shuffle(files)
     for i, path in enumerate(files):
         try:
             fname = path.split("/")[-1].split(".")[0]
@@ -179,7 +188,8 @@ def main():
                     info = json.load(f)
                 if "history" not in info:
                     info = adapter(grader, info)
-                improved = improve(info, grader, args, syntax, stdlib, prompt_config)
+                improved = improve(info, grader, args,
+                                   syntax, stdlib, prompt_config)
                 check_save(args.output_dir, fname, improved)
             print(f"[{i}/{len(files)}] ", end="\r")
         except KeyboardInterrupt:
