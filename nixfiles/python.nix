@@ -9,7 +9,7 @@ pkgs.python313.override {
         owner = "Thessal";
         repo = "butterflow";
         rev = "main";
-        sha256 = "sha256-TG0AIdsnwBrh6UsmWJfJDqkdvvEbAjXqARfzHKhoRQA=";
+        sha256 = "sha256-zQXI9yTxNRaDjzOYAeA6KjeUQDrVL113j+RPDFI9EQU=";
       };
 
       nativeBuildInputs = [ self.hatchling ];
@@ -30,7 +30,7 @@ pkgs.python313.override {
         owner = "Thessal";
         repo = "transpiler";
         rev = "main";
-        sha256 = "sha256-Ci+3k1By4LCFFmGZRaq4NFCW6rsAH1LTWbgfqP6hVX0=";
+        sha256 = "sha256-zdFlfdVL/G5O4pDkN7ogSvUGYdqKbeMyt2mH6PCmYNU=";
       };
 
       nativeBuildInputs = [ self.hatchling ];
