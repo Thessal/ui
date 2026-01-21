@@ -2,13 +2,47 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 use crate::oms::engine::OMSEngine;
 use crate::oms::order::Order;
 use crate::adapter::mock::MockAdapter;
+use crate::adapter::hantoo::HantooAdapter;
 use crate::logger::config::{LoggerConfig, LogDestinationInfo};
 use crate::logger::Logger;
+use crate::adapter::Adapter;
 
-#[pyclass]
+#[pyclass(name = "HantooAdapter")]
+pub struct PyHantooAdapter {
+    pub(crate) adapter: Arc<HantooAdapter>,
+}
+
+#[pymethods]
+impl PyHantooAdapter {
+    #[new]
+    fn new(config_path: String) -> PyResult<Self> {
+        let adapter = HantooAdapter::new(&config_path)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyHantooAdapter { adapter: Arc::new(adapter) })
+    }
+
+    fn subscribe_market(&self, symbols: Vec<String>) -> PyResult<()> {
+        self.adapter.subscribe_market(&symbols)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(())
+    }
+
+    fn connect(&self) -> PyResult<()> {
+        self.adapter.connect()
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(())
+    }
+    
+    fn set_debug_mode(&self, enabled: bool) {
+        self.adapter.set_debug_mode(enabled);
+    }
+}
+
+#[pyclass(name = "OMSEngine")]
 pub struct Interface {
     engine: Arc<OMSEngine>,
 }
@@ -16,19 +50,45 @@ pub struct Interface {
 #[pymethods]
 impl Interface {
     #[new]
-    #[pyo3(signature = (_adapter=None))]
-    fn new(_adapter: Option<PyObject>) -> Self {
-        // Default logger config provided by user
+    #[pyo3(signature = (adapter=None, s3_bucket=None, s3_region=None, s3_prefix=None))]
+    fn new(adapter: Option<&PyHantooAdapter>, s3_bucket: Option<String>, s3_region: Option<String>, s3_prefix: Option<String>) -> Self {
+        
+        let destination = if let (Some(bucket), Some(region)) = (s3_bucket, s3_region) {
+            LogDestinationInfo::AmazonS3 { 
+                bucket, 
+                key_prefix: s3_prefix.unwrap_or_else(|| "logs".to_string()), 
+                region 
+            }
+        } else {
+             LogDestinationInfo::Console // Default to console if no S3 provided, or local file? Example used Console.
+        };
+
         let config = LoggerConfig {
-            destination: LogDestinationInfo::LocalFile { path: "logs/log.jsonl".to_string() },
-            flush_interval_seconds: 60, // Default
-            batch_size: 100, // Default
+            destination,
+            flush_interval_seconds: 60,
+            batch_size: 1024,
         };
         let logger = Arc::new(Mutex::new(Logger::new(config)));
+        // Start Logger immediately? The Rust example does.
+        logger.lock().unwrap().start();
+        
+        // Resolve Adapter
+        let adapter_arc: Arc<dyn Adapter> = if let Some(py_adapter) = adapter {
+            py_adapter.adapter.clone() as Arc<dyn Adapter>
+        } else {
+            Arc::new(MockAdapter::new()) as Arc<dyn Adapter>
+        };
         
         Interface {
-            engine: Arc::new(OMSEngine::new(Arc::new(MockAdapter::new()), 1.0, logger)),
+            engine: Arc::new(OMSEngine::new(adapter_arc, 1.0, logger)),
         }
+    }
+
+    fn start_gateway(&self, adapter: &PyHantooAdapter) -> PyResult<()> {
+        let (tx, rx) = mpsc::channel();
+        adapter.adapter.set_monitor(tx);
+        self.engine.start_gateway_listener(rx)?;
+        Ok(())
     }
 
     #[pyo3(signature = (account_id=None))]
@@ -102,12 +162,6 @@ impl Interface {
     fn init_symbol(&self, py: Python, symbol: String) -> PyResult<()> {
         self.engine.initialize_symbol(py, symbol)
     }
-
-    // Callback wiring helpers if needed?
-    // User might want to pass this Interface instance to Adapter callbacks?
-    // For now, assume Adapter calls methods on Interface?
-    // Engine logic is hidden.
-    // We can expose `on_market_data` on Interface if Adapter calls it.
     
     fn on_market_data(&self, py: Python, data: PyObject) -> PyResult<()> {
         self.engine.on_market_data(py, data)

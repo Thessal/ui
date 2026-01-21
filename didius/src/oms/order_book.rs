@@ -127,11 +127,13 @@ impl OrderBook {
         // Check crossed book
         let bb = self.get_best_bid();
         let ba = self.get_best_ask();
-        if let (Some((b, _)), Some((a, _))) = (bb, ba) {
-             if b >= a {
-                 return false;
-             }
-        }
+        // if let (Some((b, _)), Some((a, _))) = (bb, ba) {
+        //     if b > a { // Aggregated book allows b > a condition. Need to study. Is it arbitrage?
+        //         eprintln!("Crossed book for {} b{} a{}", self.symbol, b, a);
+        //         eprintln!("{}", self);
+        //         return false;
+        //     }
+        // }
         true
     }
 }

@@ -416,6 +416,7 @@ impl OMSEngine {
 
     
     pub fn reconcile_orderbook(&self, symbol: &str) -> PyResult<()> {
+        eprintln!("OrderBook for {} is being reconciled.", symbol);
         // Request full snapshot
         let snapshot = self.adapter.get_order_book_snapshot(symbol)
              .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

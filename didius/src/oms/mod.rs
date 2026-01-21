@@ -17,5 +17,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // They are accessed via Interface returning Dicts.
 
     m.add_class::<interface::Interface>()?;
+    m.add_class::<interface::PyHantooAdapter>()?;
     Ok(())
 }

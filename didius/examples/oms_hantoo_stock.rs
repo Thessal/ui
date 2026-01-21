@@ -18,12 +18,15 @@ fn main() -> Result<()> {
     let adapter = Arc::new(HantooAdapter::new("auth/hantoo.yaml")?);
     
     // Use S3 logger for production-like test
-    let logger_config = LoggerConfig {
-        destination: LogDestinationInfo::AmazonS3 { 
+    let dest_s3 = 
+        LogDestinationInfo::AmazonS3 { 
             bucket: "didius".to_string(),
             key_prefix: "logs".to_string(),
             region: "ap-northeast-2".to_string(),
-        },
+        };
+    let dest_console = LogDestinationInfo::Console;
+    let logger_config = LoggerConfig {
+        destination: dest_s3, 
         flush_interval_seconds: 60,
         batch_size: 1024,
     };
@@ -59,6 +62,7 @@ fn main() -> Result<()> {
              vec!["005930".to_string(), "000660".to_string()]
         }
     };
+    //let symbols = vec!["005930".to_string(), "000660".to_string()];
 
     println!("Subscribing to {} symbols...", symbols.len());
     adapter.subscribe_market(&symbols)?;
