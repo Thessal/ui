@@ -1,6 +1,6 @@
-use didius_oms::oms::engine::OMSEngine;
-use didius_oms::oms::order_book::{OrderBook, OrderBookDelta};
-use didius_oms::adapter::Adapter;
+use didius::oms::engine::OMSEngine;
+use didius::oms::order_book::{OrderBook, OrderBookDelta};
+use didius::adapter::Adapter;
 use std::sync::{Arc, Mutex};
 use rust_decimal::dec;
 use rust_decimal::Decimal;
@@ -20,7 +20,7 @@ impl ControllableMockAdapter {
 impl Adapter for ControllableMockAdapter {
     fn connect(&self) -> anyhow::Result<()> { Ok(()) }
     fn disconnect(&self) -> anyhow::Result<()> { Ok(()) }
-    fn place_order(&self, _: &didius_oms::oms::order::Order) -> anyhow::Result<bool> { Ok(true) }
+    fn place_order(&self, _: &didius::oms::order::Order) -> anyhow::Result<bool> { Ok(true) }
     fn cancel_order(&self, _: &str) -> anyhow::Result<bool> { Ok(true) }
     fn get_order_book_snapshot(&self, symbol: &str) -> anyhow::Result<OrderBook> {
         if let Some(s) = self.snapshot.lock().unwrap().clone() {
@@ -29,8 +29,8 @@ impl Adapter for ControllableMockAdapter {
             Ok(OrderBook::new(symbol.to_string()))
         }
     }
-    fn get_account_snapshot(&self, _: &str) -> anyhow::Result<didius_oms::oms::account::AccountState> {
-        Ok(didius_oms::oms::account::AccountState::new())
+    fn get_account_snapshot(&self, _: &str) -> anyhow::Result<didius::oms::account::AccountState> {
+        Ok(didius::oms::account::AccountState::new())
     }
 }
 

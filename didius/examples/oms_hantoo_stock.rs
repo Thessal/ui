@@ -2,12 +2,12 @@ use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use didius_oms::adapter::hantoo::HantooAdapter;
-use didius_oms::oms::engine::OMSEngine;
-use didius_oms::logger::Logger;
-use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
+use didius::adapter::hantoo::HantooAdapter;
+use didius::oms::engine::OMSEngine;
+use didius::logger::Logger;
+use didius::logger::config::{LoggerConfig, LogDestinationInfo};
 use std::sync::mpsc;
-use didius_oms::adapter::Adapter;
+use didius::adapter::Adapter;
 // OrderBook now implements PartialEq/Eq
 
 fn main() -> Result<()> {
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     // 1. Subscribe to KOSPI50 constituents
     println!("Example: Long-running Market Data Stream to S3");
     println!("Attempting to download KOSPI50 constituents...");
-    use didius_oms::utils::universe::download_kospi_50;
+    use didius::utils::universe::download_kospi_50;
     
     let symbols = match download_kospi_50() {
         Ok(list) => {

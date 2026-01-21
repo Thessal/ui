@@ -4,16 +4,16 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
-    use didius_oms::adapter::hantoo_ngt_futopt::HantooNightAdapter;
-    use didius_oms::oms::engine::OMSEngine;
-    use didius_oms::logger::Logger;
-    use didius_oms::logger::config::LoggerConfig;
+    use didius::adapter::hantoo_ngt_futopt::HantooNightAdapter;
+    use didius::oms::engine::OMSEngine;
+    use didius::logger::Logger;
+    use didius::logger::config::LoggerConfig;
     use std::sync::Mutex;
-    use didius_oms::adapter::Adapter; // Import trait
+    use didius::adapter::Adapter; // Import trait
     use pyo3::prelude::*; // Import PyO3
     use pyo3::types::PyDict;
     use std::sync::mpsc;
-    use didius_oms::adapter::IncomingMessage;
+    use didius::adapter::IncomingMessage;
 
     #[test]
     fn test_oms_hantoo_night_future_integration() -> Result<()> {
@@ -85,7 +85,7 @@ mod tests {
             // B. Get Engine Live Snapshot
             let live_ob = engine.get_order_book(&symbol).unwrap_or_else(|| {
                  // Might not exist yet if no messages received
-                 didius_oms::oms::order_book::OrderBook::new(symbol.clone())
+                 didius::oms::order_book::OrderBook::new(symbol.clone())
             });
             let live_best_bid = live_ob.get_best_bid().map(|(p, _)| p.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
             let live_best_ask = live_ob.get_best_ask().map(|(p, _)| p.to_f64().unwrap_or(0.0)).unwrap_or(0.0);

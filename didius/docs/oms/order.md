@@ -1,4 +1,4 @@
-# `didius_oms::oms::order`
+# `didius::oms::order`
 
 This module defines the data structures and enumerations related to orders in the Rust OMS implementation.
 

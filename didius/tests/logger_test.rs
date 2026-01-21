@@ -1,6 +1,6 @@
-use didius_oms::logger::Logger;
-use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
-use didius_oms::logger::message::Message;
+use didius::logger::Logger;
+use didius::logger::config::{LoggerConfig, LogDestinationInfo};
+use didius::logger::message::Message;
 use std::fs;
 use std::thread;
 use std::time::Duration;

@@ -1,4 +1,4 @@
-use didius_oms::oms::order_book::{OrderBook, OrderBookDelta};
+use didius::oms::order_book::{OrderBook, OrderBookDelta};
 use rust_decimal::Decimal;
 use rust_decimal::dec;
 use rand::seq::SliceRandom;

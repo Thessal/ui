@@ -9,7 +9,7 @@ use pyo3::types::PyModule;
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn didius_oms(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     oms::register(m)?;
     utils::register(m)?;
     Ok(())

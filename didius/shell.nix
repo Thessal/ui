@@ -1,36 +1,36 @@
-{ pkgs ? import <nixpkgs> {} }:
-
 let
-  python = pkgs.python313;
-  
-  didius_oms = python.pkgs.buildPythonPackage {
-    pname = "didius_oms";
+  pkgs = import <nixpkgs> { };
+  python = import ../nixfiles/python.nix { pkgs=pkgs; };
+  pythonEnv = import ../nixfiles/uv.nix { pkgs=pkgs; python=python; projectRoot=(./.); };
+
+  didiusPackage = python.pkgs.buildPythonPackage {
+    pname = "didius";
     version = "0.1.0";
-    format = "wheel";
-    src = ./target/wheels/didius_oms-0.1.0-cp313-cp313-linux_x86_64.whl;
+    format = "pyproject";
+    src = ./.;
     doCheck = false;
     
-    # Ensure shared libraries are found (common on NixOS)
-    nativeBuildInputs = [
-      pkgs.autoPatchelfHook
-    ];
-    
-    buildInputs = [
-      pkgs.openssl
-      pkgs.stdenv.cc.cc.lib
-    ];
+    cargoDeps = pkgs.rustPlatform.importCargoLock {
+      lockFile = ./Cargo.lock;
+    };
+    nativeBuildInputs = (with pkgs.rustPlatform; [cargoSetupHook maturinBuildHook]) ++ (with pkgs; [maturin pkg-config rustc cargo]);
+    buildInputs = [ pkgs.openssl python.pkgs.butterflow python.pkgs.morpho ];
   };
 
 in pkgs.mkShell {
   packages = [
-    (python.withPackages (ps: [ didius_oms ]))
-    pkgs.maturin # useful to have around
-    pkgs.cargo
-    pkgs.rustc
-  ];
-
-  postBuild = ''
-    echo "Dont forget to maturin build"
-  '';  
-  RUST_LOG = "info";
+    pythonEnv
+    didiusPackage
+    pkgs.cargo # for dev 
+    pkgs.rustc # for dev
+  ] ++ (with python.pkgs; [
+    matplotlib                                                                
+    pandas                                                                    
+    numpy                                                                     
+    ipython
+    jupyter
+    #seaborn
+    #mplfinance
+    pyyaml
+  ]);
 }

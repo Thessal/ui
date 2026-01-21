@@ -1,5 +1,5 @@
-use didius_oms::adapter::hantoo_ngt_futopt::HantooNightAdapter;
-use didius_oms::adapter::Adapter;
+use didius::adapter::hantoo_ngt_futopt::HantooNightAdapter;
+use didius::adapter::Adapter;
 use anyhow::Result;
 
 fn main() -> Result<()> {

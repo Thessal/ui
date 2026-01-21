@@ -1,6 +1,6 @@
-use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
-use didius_oms::logger::message::Message;
-use didius_oms::logger::Logger;
+use didius::logger::config::{LoggerConfig, LogDestinationInfo};
+use didius::logger::message::Message;
+use didius::logger::Logger;
 use serde_json::json;
 use std::fs;
 use std::thread;

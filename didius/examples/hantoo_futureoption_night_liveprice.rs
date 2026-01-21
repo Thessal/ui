@@ -1,5 +1,5 @@
-use didius_oms::adapter::hantoo_ngt_futopt::HantooNightAdapter;
-use didius_oms::adapter::IncomingMessage;
+use didius::adapter::hantoo_ngt_futopt::HantooNightAdapter;
+use didius::adapter::IncomingMessage;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::time::Duration;

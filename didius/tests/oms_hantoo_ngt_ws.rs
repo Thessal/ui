@@ -4,13 +4,13 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
     use std::time::Duration;
-    use didius_oms::adapter::hantoo_ngt_futopt::HantooNightAdapter;
-    use didius_oms::oms::engine::OMSEngine;
-    use didius_oms::logger::Logger;
-    use didius_oms::logger::config::LoggerConfig;
+    use didius::adapter::hantoo_ngt_futopt::HantooNightAdapter;
+    use didius::oms::engine::OMSEngine;
+    use didius::logger::Logger;
+    use didius::logger::config::LoggerConfig;
     use std::sync::mpsc;
     use rust_decimal::prelude::ToPrimitive;
-    use didius_oms::logger::message::Message;
+    use didius::logger::message::Message;
     use serde_json::json;
 
     #[test]
@@ -21,7 +21,7 @@ mod tests {
         adapter.set_debug_mode(true);
         
         // 2. Initialize Engine
-        use didius_oms::logger::config::LogDestinationInfo;
+        use didius::logger::config::LogDestinationInfo;
         let file_destination = LogDestinationInfo::LocalFile { path: "logs/monitor.log".to_string() };
         let s3_destination = LogDestinationInfo::AmazonS3 { 
             bucket: "didius".to_string(),

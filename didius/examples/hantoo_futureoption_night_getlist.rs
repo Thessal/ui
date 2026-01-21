@@ -1,4 +1,4 @@
-use didius_oms::adapter::hantoo_futureoption_night::HantooNightAdapter;
+use didius::adapter::hantoo_futureoption_night::HantooNightAdapter;
 use anyhow::Result;
 
 fn main() -> Result<()> {

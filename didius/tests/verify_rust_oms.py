@@ -8,17 +8,17 @@ import shutil
 # Add target/release to path to import generated module
 sys.path.append("/home/jongkook90/antigravity/didius/rust/target/release")
 
-if "didius_oms" in sys.modules:
-    del sys.modules["didius_oms"]
+if "didius" in sys.modules:
+    del sys.modules["didius"]
     
 try:
-    import didius_oms 
+    import didius 
 except ImportError:
      print("Direct import failed.")
      sys.exit(1)
 
 print("Module loaded successfully!")
-print(f"Module file: {didius_oms.__file__}")
+print(f"Module file: {didius.__file__}")
 
 
 # Mock Adapter
@@ -54,18 +54,18 @@ def test_interface():
     
     # Instantiate Interface
     # Note: OMSEngine is hidden now.
-    interface = didius_oms.Interface(adapter)
+    interface = didius.Interface(adapter)
     
     interface.start(None)
     
     # Place Order
-    order = didius_oms.Order(
+    order = didius.Order(
         symbol="AAPL",
-        side=didius_oms.OrderSide.BUY,
-        order_type=didius_oms.OrderType.LIMIT,
+        side=didius.OrderSide.BUY,
+        order_type=didius.OrderType.LIMIT,
         quantity=10,
         price=150.0,
-        strategy=didius_oms.ExecutionStrategy.NONE,
+        strategy=didius.ExecutionStrategy.NONE,
         strategy_params=None,
         stop_price=None
     )

@@ -4,12 +4,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
     use std::time::Duration;
-    use didius_oms::adapter::hantoo::HantooAdapter;
-    use didius_oms::oms::engine::OMSEngine;
-    use didius_oms::logger::Logger;
-    use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
+    use didius::adapter::hantoo::HantooAdapter;
+    use didius::oms::engine::OMSEngine;
+    use didius::logger::Logger;
+    use didius::logger::config::{LoggerConfig, LogDestinationInfo};
     use std::sync::mpsc;
-    use didius_oms::adapter::Adapter;
+    use didius::adapter::Adapter;
     // OrderBook now implements PartialEq/Eq
 
     #[test]

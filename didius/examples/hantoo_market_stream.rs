@@ -1,8 +1,8 @@
-use didius_oms::adapter::hantoo::HantooAdapter;
-use didius_oms::adapter::{Adapter, IncomingMessage};
-use didius_oms::oms::engine::OMSEngine;
-use didius_oms::logger::Logger;
-use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
+use didius::adapter::hantoo::HantooAdapter;
+use didius::adapter::{Adapter, IncomingMessage};
+use didius::oms::engine::OMSEngine;
+use didius::logger::Logger;
+use didius::logger::config::{LoggerConfig, LogDestinationInfo};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::thread;

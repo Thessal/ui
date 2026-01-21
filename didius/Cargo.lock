@@ -876,7 +876,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "didius_oms"
+name = "didius"
 version = "0.1.0"
 dependencies = [
  "anyhow",

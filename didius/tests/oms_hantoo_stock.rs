@@ -4,11 +4,11 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
     use std::time::Duration;
-    use didius_oms::adapter::hantoo::HantooAdapter;
-    use didius_oms::oms::engine::OMSEngine;
-    use didius_oms::logger::Logger;
-    use didius_oms::logger::config::LoggerConfig;
-    use didius_oms::adapter::Adapter; // Import trait
+    use didius::adapter::hantoo::HantooAdapter;
+    use didius::oms::engine::OMSEngine;
+    use didius::logger::Logger;
+    use didius::logger::config::LoggerConfig;
+    use didius::adapter::Adapter; // Import trait
     use pyo3::prelude::*; // Import PyO3
     use rust_decimal::prelude::ToPrimitive;
 
@@ -54,7 +54,7 @@ mod tests {
             
             // B. Get Engine Live Snapshot
             let live_ob = engine.get_order_book(symbol).unwrap_or_else(|| {
-                 didius_oms::oms::order_book::OrderBook::new(symbol.to_string())
+                 didius::oms::order_book::OrderBook::new(symbol.to_string())
             });
             let live_best_bid = live_ob.get_best_bid().map(|(p, _)| p.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
             let live_best_ask = live_ob.get_best_ask().map(|(p, _)| p.to_f64().unwrap_or(0.0)).unwrap_or(0.0);

@@ -1,4 +1,4 @@
-# `didius_oms::oms::engine`
+# `didius::oms::engine`
 
 The `OMSEngine` is the core coordinator implemented in Rust for high performance, exposed to Python.
 

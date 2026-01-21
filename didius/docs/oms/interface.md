@@ -1,4 +1,4 @@
-# `didius_oms::oms::interface`
+# `didius::oms::interface`
 
 The `Interface` class provides the main entry point for Python-Rust Inter-Process Communication (IPC) via PyO3. It replaces the HTTP-based interface used in the pure Python implementation.
 
@@ -20,7 +20,7 @@ The `Interface` class provides the main entry point for Python-Rust Inter-Proces
 - `place_order(order: Order) -> str`:
     - Submits an order to the OMS.
     - Returns the `order_id`.
-    - `order` must be an instance of `didius_oms.Order`.
+    - `order` must be an instance of `didius.Order`.
 
 - `get_order_book(symbol: str) -> dict`:
     - Returns the current state of the Order Book for `symbol` as a dictionary.

@@ -1,8 +1,8 @@
-use didius_oms::oms::engine::OMSEngine;
-use didius_oms::oms::account::{AccountState, Position};
-use didius_oms::oms::order::{Order, OrderSide, OrderType, ExecutionStrategy, OrderState};
-use didius_oms::adapter::mock::MockAdapter;
-use didius_oms::adapter::Adapter;
+use didius::oms::engine::OMSEngine;
+use didius::oms::account::{AccountState, Position};
+use didius::oms::order::{Order, OrderSide, OrderType, ExecutionStrategy, OrderState};
+use didius::adapter::mock::MockAdapter;
+use didius::adapter::Adapter;
 use std::sync::Arc;
 use pyo3::Python;
 

@@ -1,9 +1,9 @@
-use didius_oms::adapter::hantoo::HantooAdapter;
-use didius_oms::adapter::Adapter;
-use didius_oms::oms::order::{Order, OrderSide, OrderType};
-use didius_oms::logger::Logger;
-use didius_oms::logger::config::{LoggerConfig, LogDestinationInfo};
-use didius_oms::logger::message::Message;
+use didius::adapter::hantoo::HantooAdapter;
+use didius::adapter::Adapter;
+use didius::oms::order::{Order, OrderSide, OrderType};
+use didius::logger::Logger;
+use didius::logger::config::{LoggerConfig, LogDestinationInfo};
+use didius::logger::message::Message;
 use std::fs;
 use std::path::Path;
 use std::thread;

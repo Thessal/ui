@@ -1,4 +1,4 @@
-# `didius_oms::oms::account`
+# `didius::oms::account`
 
 This module defines `AccountState` and `Position` for tracking user funds and holdings.
 

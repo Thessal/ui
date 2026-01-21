@@ -2,20 +2,20 @@ import time
 import sys
 import datetime
 
-# Assuming compiled module is available as didius_oms
+# Assuming compiled module is available as didius
 # Note: You must build the module using `maturin develop` or `cargo build --release` (plus moving .so) for this to import.
 try:
-    import didius_oms
-    from didius_oms import utils
+    import didius
+    from didius import utils
 except ImportError:
-    print("Error: didius_oms module not found. Please build the rust extension (e.g., using `maturin develop`).")
+    print("Error: didius module not found. Please build the rust extension (e.g., using `maturin develop`).")
     sys.exit(1)
 
 def main():
     print("Initializing HantooAdapter...")
     try:
         # Create Adapter (Rust implementation wrapped in Python class)
-        adapter = didius_oms.HantooAdapter("auth/hantoo.yaml")
+        adapter = didius.HantooAdapter("auth/hantoo.yaml")
     except Exception as e:
         print(f"Failed to initialize adapter: {e}")
         return
@@ -23,7 +23,7 @@ def main():
     print("Initializing OMSEngine with S3 Logger...")
     # Initialize Engine with S3 logging configuration
     # This matches the modified rust/examples/oms_hantoo_stock.rs
-    engine = didius_oms.OMSEngine(
+    engine = didius.OMSEngine(
         adapter=adapter, 
         s3_bucket="didius", 
         s3_region="ap-northeast-2", 

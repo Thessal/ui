@@ -1,4 +1,4 @@
-# `didius_oms::oms::order_book`
+# `didius::oms::order_book`
 
 This module handles the Order Book management.
 

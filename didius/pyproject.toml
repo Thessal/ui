@@ -1,19 +1,28 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+#requires = ["maturin>=1.0,<2.0"]
+requires = []
 build-backend = "maturin"
 
 [project]
-name = "didius_oms"
+name = "didius"
+version = "0.1.2"
+description = "Add your description here"
+readme = "README.md"
 requires-python = ">=3.13"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+dependencies = [
+    #"didius",
+    "butterflow",
+    "morpho",
+    "PyYAML>=6.0.2"
 ]
-dynamic = ["version"]
 
-[dependencies]
-pyo3 = { version = "0.23", features = ["abi3"] }
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv.sources]
+morpho = { git = "https://github.com/Thessal/transpiler" }
+butterflow = { git = "https://github.com/Thessal/butterflow" }
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
+python-source = "src_python"
+module-name = "didius.core"

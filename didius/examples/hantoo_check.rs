@@ -1,5 +1,5 @@
-use didius_oms::adapter::hantoo::HantooAdapter;
-use didius_oms::adapter::Adapter;
+use didius::adapter::hantoo::HantooAdapter;
+use didius::adapter::Adapter;
 use std::env;
 use std::fs;
 use std::path::Path;
