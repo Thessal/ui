@@ -37,3 +37,4 @@ pub trait Adapter: Send + Sync {
 pub mod mock;
 pub mod hantoo;
 pub mod hantoo_ngt_futopt;
+pub mod interface;

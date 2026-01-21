@@ -6,41 +6,10 @@ use std::sync::mpsc;
 use crate::oms::engine::OMSEngine;
 use crate::oms::order::Order;
 use crate::adapter::mock::MockAdapter;
-use crate::adapter::hantoo::HantooAdapter;
+use crate::adapter::interface::PyHantooAdapter;
 use crate::logger::config::{LoggerConfig, LogDestinationInfo};
 use crate::logger::Logger;
 use crate::adapter::Adapter;
-
-#[pyclass(name = "HantooAdapter")]
-pub struct PyHantooAdapter {
-    pub(crate) adapter: Arc<HantooAdapter>,
-}
-
-#[pymethods]
-impl PyHantooAdapter {
-    #[new]
-    fn new(config_path: String) -> PyResult<Self> {
-        let adapter = HantooAdapter::new(&config_path)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(PyHantooAdapter { adapter: Arc::new(adapter) })
-    }
-
-    fn subscribe_market(&self, symbols: Vec<String>) -> PyResult<()> {
-        self.adapter.subscribe_market(&symbols)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(())
-    }
-
-    fn connect(&self) -> PyResult<()> {
-        self.adapter.connect()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(())
-    }
-    
-    fn set_debug_mode(&self, enabled: bool) {
-        self.adapter.set_debug_mode(enabled);
-    }
-}
 
 #[pyclass(name = "OMSEngine")]
 pub struct Interface {
