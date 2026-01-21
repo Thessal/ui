@@ -1,12 +1,12 @@
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyAny, PyDict};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use crate::oms::engine::OMSEngine;
 use crate::oms::order::Order;
 use crate::adapter::mock::MockAdapter;
-use crate::adapter::interface::PyHantooAdapter;
+use crate::adapter::interface::{extract_adapter, initialize_monitor};
 use crate::logger::config::{LoggerConfig, LogDestinationInfo};
 use crate::logger::Logger;
 use crate::adapter::Adapter;
@@ -20,7 +20,7 @@ pub struct Interface {
 impl Interface {
     #[new]
     #[pyo3(signature = (adapter=None, s3_bucket=None, s3_region=None, s3_prefix=None))]
-    fn new(adapter: Option<&PyHantooAdapter>, s3_bucket: Option<String>, s3_region: Option<String>, s3_prefix: Option<String>) -> Self {
+    fn new(adapter: Option<&Bound<'_, PyAny>>, s3_bucket: Option<String>, s3_region: Option<String>, s3_prefix: Option<String>) -> PyResult<Self> {
         
         let destination = if let (Some(bucket), Some(region)) = (s3_bucket, s3_region) {
             LogDestinationInfo::AmazonS3 { 
@@ -29,7 +29,7 @@ impl Interface {
                 region 
             }
         } else {
-             LogDestinationInfo::Console // Default to console if no S3 provided, or local file? Example used Console.
+             LogDestinationInfo::Console 
         };
 
         let config = LoggerConfig {
@@ -38,24 +38,27 @@ impl Interface {
             batch_size: 1024,
         };
         let logger = Arc::new(Mutex::new(Logger::new(config)));
-        // Start Logger immediately? The Rust example does.
         logger.lock().unwrap().start();
         
         // Resolve Adapter
-        let adapter_arc: Arc<dyn Adapter> = if let Some(py_adapter) = adapter {
-            py_adapter.adapter.clone() as Arc<dyn Adapter>
+        let adapter_arc: Arc<dyn Adapter> = if let Some(py_any) = adapter {
+            if py_any.is_none() {
+                 Arc::new(MockAdapter::new()) as Arc<dyn Adapter>
+            } else {
+                 extract_adapter(py_any)?
+            }
         } else {
             Arc::new(MockAdapter::new()) as Arc<dyn Adapter>
         };
         
-        Interface {
+        Ok(Interface {
             engine: Arc::new(OMSEngine::new(adapter_arc, 1.0, logger)),
-        }
+        })
     }
 
-    fn start_gateway(&self, adapter: &PyHantooAdapter) -> PyResult<()> {
+    fn start_gateway(&self, adapter: &Bound<'_, PyAny>) -> PyResult<()> {
         let (tx, rx) = mpsc::channel();
-        adapter.adapter.set_monitor(tx);
+        initialize_monitor(adapter, tx)?;
         self.engine.start_gateway_listener(rx)?;
         Ok(())
     }

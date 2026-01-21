@@ -5,6 +5,9 @@ use crate::adapter::hantoo::HantooAdapter;
 use crate::adapter::hantoo_ngt_futopt::HantooNightAdapter;
 use crate::adapter::Adapter;
 use serde_json::Value;
+use std::sync::mpsc;
+use crate::adapter::IncomingMessage;
+use pyo3::types::PyAny;
 
 #[pyclass(name = "HantooAdapter")]
 pub struct PyHantooAdapter {
@@ -109,4 +112,32 @@ fn json_to_py(py: Python, value: &Value) -> PyResult<PyObject> {
             Ok(dict.into())
         }
     }
+}
+
+pub fn extract_adapter(obj: &Bound<'_, PyAny>) -> PyResult<Arc<dyn Adapter>> {
+    if let Ok(py_adapter) = obj.extract::<Py<PyHantooAdapter>>() {
+        let adapter = py_adapter.borrow(obj.py()).adapter.clone();
+        return Ok(adapter as Arc<dyn Adapter>);
+    }
+    
+    if let Ok(py_night) = obj.extract::<Py<PyHantooNightAdapter>>() {
+        let adapter = py_night.borrow(obj.py()).adapter.clone();
+        return Ok(adapter as Arc<dyn Adapter>);
+    }
+
+    Err(pyo3::exceptions::PyTypeError::new_err("Unknown Adapter Type"))
+}
+
+pub fn initialize_monitor(obj: &Bound<'_, PyAny>, sender: mpsc::Sender<IncomingMessage>) -> PyResult<()> {
+    if let Ok(py_adapter) = obj.extract::<Py<PyHantooAdapter>>() {
+        py_adapter.borrow(obj.py()).adapter.set_monitor(sender);
+        return Ok(());
+    }
+    
+    if let Ok(py_night) = obj.extract::<Py<PyHantooNightAdapter>>() {
+        py_night.borrow(obj.py()).adapter.set_monitor(sender);
+        return Ok(());
+    }
+    
+    Err(pyo3::exceptions::PyTypeError::new_err("Unknown Adapter Type or Adapter does not support monitoring"))
 }
