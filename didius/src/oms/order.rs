@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Local};
 use uuid::Uuid;
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 #[pyclass(eq, eq_int)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -59,8 +61,10 @@ pub struct Order {
     pub order_type: OrderType,
     #[pyo3(get, set)]
     pub quantity: i64,
-    #[pyo3(get, set)]
-    pub price: Option<f64>,
+    
+    // Internal Decimal fields, exposed via custom getters/setters as String
+    pub price: Option<Decimal>,
+    
     #[pyo3(get, set)]
     pub order_id: Option<String>,
     #[pyo3(get, set)]
@@ -69,27 +73,17 @@ pub struct Order {
     pub state: OrderState,
     #[pyo3(get, set)]
     pub filled_quantity: i64,
-    #[pyo3(get, set)]
-    pub average_fill_price: f64,
+    
+    pub average_fill_price: Decimal,
+    
     #[pyo3(get, set)]
     pub strategy: ExecutionStrategy,
-    // strategy_params is Dict[str, Any] in Python. 
-    // In Rust/PyO3 for simple storage we can use PyObject or HashMap<String, String> if simple.
-    // For now, let's use HashMap<String, String> for simplicity in Rust, 
-    // but we might need more complex types later.
     #[pyo3(get, set)]
     pub strategy_params: HashMap<String, String>, 
-    #[pyo3(get, set)]
-    pub limit_price: Option<f64>,
-    #[pyo3(get, set)]
-    pub stop_price: Option<f64>,
     
-    // Dates are a bit tricky with PyO3 <-> Chrono directly without wrappers sometimes,
-    // but recent PyO3 versions support it well with `chrono` feature.
-    // We will store as string or timestamps if needed, but let's try direct support.
-    // Actually, passing datetime structs back and forth requires some care.
-    // Storing as timestamp (f64 or i64) might be safer for MVP.
-    // Let's use f64 (timestamp) for simplicity and performance.
+    pub limit_price: Option<Decimal>,
+    pub stop_price: Option<Decimal>,
+    
     #[pyo3(get, set)]
     pub created_at: f64, 
     #[pyo3(get, set)]
@@ -108,31 +102,63 @@ impl Order {
         side: OrderSide,
         order_type: OrderType,
         quantity: i64,
-        price: Option<f64>,
+        price: Option<String>,
         strategy: Option<ExecutionStrategy>,
         strategy_params: Option<HashMap<String, String>>,
-        stop_price: Option<f64>,
+        stop_price: Option<String>,
     ) -> Self {
         let now = Local::now().timestamp_millis() as f64 / 1000.0;
+        
+        let price_dec = price.and_then(|p| Decimal::from_str(&p).ok());
+        let stop_dec = stop_price.and_then(|p| Decimal::from_str(&p).ok());
+
         Order {
             symbol,
             side,
             order_type,
             quantity,
-            price,
+            price: price_dec,
             order_id: None,
             exchange_order_id: None,
             state: OrderState::CREATED,
             filled_quantity: 0,
-            average_fill_price: 0.0,
+            average_fill_price: Decimal::ZERO,
             strategy: strategy.unwrap_or(ExecutionStrategy::NONE),
             strategy_params: strategy_params.unwrap_or_default(),
             limit_price: None,
-            stop_price,
+            stop_price: stop_dec,
             created_at: now,
             updated_at: now,
             error_message: None,
         }
+    }
+
+    #[getter(price)]
+    fn get_price(&self) -> Option<String> {
+        self.price.map(|d| d.to_string())
+    }
+
+    #[setter(price)]
+    fn set_price(&mut self, value: Option<String>) {
+        self.price = value.and_then(|s| Decimal::from_str(&s).ok());
+    }
+
+    #[getter(average_fill_price)]
+    fn get_average_fill_price(&self) -> String {
+        self.average_fill_price.to_string()
+    }
+    
+    // No setter needed for fill price usually, but if needed for persistence/testing:
+    // #[setter(average_fill_price)] ...
+
+    #[getter(stop_price)]
+    fn get_stop_price(&self) -> Option<String> {
+        self.stop_price.map(|d| d.to_string())
+    }
+
+    #[setter(stop_price)]
+    fn set_stop_price(&mut self, value: Option<String>) {
+        self.stop_price = value.and_then(|s| Decimal::from_str(&s).ok());
     }
 
     #[pyo3(signature = (new_state, msg=None))]

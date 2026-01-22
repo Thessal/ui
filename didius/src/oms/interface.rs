@@ -73,7 +73,6 @@ impl Interface {
     }
 
     fn place_order(&self, py: Python, order: Order) -> PyResult<String> {
-        // Order is still PyClass, so we can accept it directly.
         self.engine.send_order(py, order.clone())?;
         Ok(order.order_id.unwrap_or_default())
     }
@@ -84,13 +83,11 @@ impl Interface {
     
     fn get_order_book(&self, py: Python, symbol: String) -> PyResult<PyObject> {
         if let Some(book) = self.engine.get_order_book(&symbol) {
-            // Convert OrderBook to Dict
-            // Simple serialization:
             let dict = PyDict::new(py);
             dict.set_item("symbol", book.symbol)?;
             dict.set_item("last_update_id", book.last_update_id)?;
             dict.set_item("timestamp", book.timestamp)?;
-            // Bids/Asks
+            
             let bids_dict = PyDict::new(py);
             for (price, qty) in &book.bids {
                 bids_dict.set_item(price.to_string(), qty)?;
@@ -112,23 +109,53 @@ impl Interface {
     fn get_account(&self, py: Python) -> PyResult<PyObject> {
         let acc = self.engine.get_account();
         let dict = PyDict::new(py);
-        dict.set_item("balance", acc.balance)?;
-        dict.set_item("locked", acc.locked)?;
+        dict.set_item("balance", acc.balance.to_string())?;
+        dict.set_item("locked", acc.locked.to_string())?;
         
         let positions_dict = PyDict::new(py);
         for (sym, pos) in acc.positions {
             let p_dict = PyDict::new(py);
             p_dict.set_item("symbol", pos.symbol.clone())?;
             p_dict.set_item("quantity", pos.quantity)?;
-            p_dict.set_item("average_price", pos.average_price)?;
-            p_dict.set_item("current_price", pos.current_price)?;
-            p_dict.set_item("unrealized_pnl", pos.unrealized_pnl())?;
+            p_dict.set_item("average_price", pos.average_price.to_string())?;
+            p_dict.set_item("current_price", pos.current_price.to_string())?;
+            p_dict.set_item("unrealized_pnl", pos.unrealized_pnl().to_string())?;
             
             positions_dict.set_item(sym, p_dict)?;
         }
         dict.set_item("positions", positions_dict)?;
         
         Ok(dict.into())
+    }
+    
+    fn get_balance(&self, py: Python) -> PyResult<PyObject> {
+        self.get_account(py)
+    }
+
+    fn get_balance_api(&self, py: Python, account_id: String) -> PyResult<PyObject> {
+        // Trigger update from API
+        self.engine.initialize_account(py, account_id)?;
+        // Return updated state
+        self.get_account(py)
+    }
+
+    fn get_orders(&self, _py: Python) -> PyResult<HashMap<String, Order>> {
+        // Order is PyClass, maps to Dict/Object in Python?
+        // PyO3 converts HashMap<String, Order> to Dict[str, Order] automatically if Order is PyClass.
+        Ok(self.engine.get_orders())
+    }
+    
+    fn get_oms_status(&self, _py: Python) -> PyResult<String> {
+        // Simple status report
+        let orders = self.engine.get_orders();
+        let active_orders = orders.values().filter(|o| matches!(o.state, crate::oms::order::OrderState::PENDING_NEW | crate::oms::order::OrderState::NEW | crate::oms::order::OrderState::PARTIALLY_FILLED)).count();
+        let acc = self.engine.get_account();
+        let positions_count = acc.positions.len();
+        
+        Ok(format!(
+            "OMS Status: Running. Active Orders: {}. Positions: {}. Balance: {}", 
+            active_orders, positions_count, acc.balance
+        ))
     }
     
     fn init_symbol(&self, py: Python, symbol: String) -> PyResult<()> {

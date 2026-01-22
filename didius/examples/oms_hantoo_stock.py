@@ -44,6 +44,11 @@ def main():
         print(f"Failed to download KOSPI50: {e}. Using fallback.")
         symbols = ["005930", "000660"]
 
+    print("Wiring Gateway...")
+    # Wire the internal Rust channels between Adapter and Engine
+    # This enables the engine to process incoming WebSocket messages
+    engine.start_gateway(adapter)
+    
     print(f"Subscribing to {len(symbols)} symbols...")
     adapter.subscribe_market(symbols)
 
@@ -51,11 +56,6 @@ def main():
     adapter.set_debug_mode(False)
     adapter.connect()
 
-    print("Wiring Gateway...")
-    # Wire the internal Rust channels between Adapter and Engine
-    # This enables the engine to process incoming WebSocket messages
-    engine.start_gateway(adapter)
-    
     print("Waiting 5s for initial data...")
     time.sleep(5)
     
@@ -70,7 +70,10 @@ def main():
             
             # Optional: Sample book display
             if symbols:
-                sample = symbols[0]
+                if "005930" in symbols:
+                    sample = "005930"
+                else:
+                    sample = symbols[0]
                 # get_order_book returns a dictionary
                 book = engine.get_order_book(sample)
                 if book:
@@ -94,6 +97,8 @@ def main():
                          
                     update_id = book.get("last_update_id", 0)
                     print(f"  Sample Book [{sample}]: Best Bid {best_bid_p} / Best Ask {best_ask_p} (UpdateID: {update_id})")
+                else:
+                    print(f"Could not find {sample} book in the OMS (Connection error?)")
     except KeyboardInterrupt:
         print("\nStopping...")
         pass

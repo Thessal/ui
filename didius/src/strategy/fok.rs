@@ -13,7 +13,7 @@ impl FOKStrategy {
     pub fn check(order: &Order, book: &OrderBook) -> bool {
         let quantity = order.quantity;
         let limit_price = match order.price {
-            Some(p) => Decimal::from_f64(p).unwrap_or_default(),
+            Some(p) => p,
             None => return true, // Market order FOK? Assume fillable if enough liquidity?
         };
 

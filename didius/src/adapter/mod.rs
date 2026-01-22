@@ -20,9 +20,15 @@ pub enum IncomingMessage {
     Execution {
         order_id: String,
         fill_qty: i64,
-        fill_price: f64,
+        fill_price: Decimal,
     },
     OrderBookSnapshot(crate::oms::order_book::OrderBookSnapshot),
+    OrderUpdate {
+        order_id: String,
+        state: crate::oms::order::OrderState,
+        msg: Option<String>,
+        updated_at: f64,
+    },
 }
 
 pub trait Adapter: Send + Sync {

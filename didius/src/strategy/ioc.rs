@@ -8,7 +8,7 @@ impl IOCStrategy {
     // Returns the quantity that can be filled immediately.
     pub fn calculate_fillable_qty(order: &Order, book: &OrderBook) -> i64 {
         let limit_price = match order.price {
-             Some(p) => Decimal::from_f64(p).unwrap_or_default(),
+             Some(p) => p,
              None => return order.quantity, // Market IOC takes all available?
         };
         

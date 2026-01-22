@@ -82,7 +82,7 @@ impl VWAPStrategy {
             self.side.clone(),
             OrderType::LIMIT,
             quantity,
-            Some(final_price),
+            Some(final_price.to_string()),
             Some(ExecutionStrategy::NONE), // Child orders don't have strategy? Or marked?
             None,
             None

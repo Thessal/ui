@@ -591,8 +591,8 @@ impl Adapter for HantooNightAdapter {
         let params = [
             ("CANO", cano),
             ("ACNT_PRDT_CD", prdt),
-            ("MGNA_DVSN", "01"), // Margin Div? 01:Open?
-            ("EXCC_STAT_CD", "1"), // Settlement? 1:Settled?
+            ("MGNA_DVSN", "01"), 
+            ("EXCC_STAT_CD", "1"), 
             ("ACNT_PWD", ""),
             ("CTX_AREA_FK200", ""),
             ("CTX_AREA_NK200", "")
@@ -621,25 +621,19 @@ impl Adapter for HantooNightAdapter {
         // Output2: Balance
         if let Some(out2) = data["output2"].as_object() {
              // Try 'dnca_tot_amt' like Stock? Or Night specific?
-             // Py example reused `output2` directly.
-             // Usually `dnca_tot_amt` is Deposit.
              if let Some(val) = out2.get("dnca_tot_amt") {
                  if let Some(s) = val.as_str() {
-                     acct.balance = s.parse().unwrap_or(0.0);
+                     acct.balance = Decimal::from_str(s).unwrap_or_default();
                  }
              }
         }
         
         // Output1: Positions
-        // Fields might differ. Common: pdno, hldg_qty, etc.
         if let Some(out1) = data["output1"].as_array() {
             for item in out1 {
                 let symbol = item.get("pdno").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let qty_str = item.get("hldg_qty").and_then(|v| v.as_str()).unwrap_or("0");
                 
-                // Night Future price fields might be different?
-                // `avg_unpr` vs `pchs_avg_pric`?
-                // I'll try `pchs_avg_pric` first, then others if missing.
                 let price_str = item.get("pchs_avg_pric")
                     .or_else(|| item.get("avg_unpr"))
                     .and_then(|v| v.as_str())
@@ -652,8 +646,8 @@ impl Adapter for HantooNightAdapter {
                 
                 let qty = qty_str.parse::<i64>().unwrap_or(0);
                 if qty > 0 {
-                    let avg = price_str.parse().unwrap_or(0.0);
-                    let curr = curr_str.parse().unwrap_or(0.0);
+                    let avg = Decimal::from_str(price_str).unwrap_or_default();
+                    let curr = Decimal::from_str(curr_str).unwrap_or_default();
                     
                     let pos = Position::new(symbol.clone(), qty, avg, curr);
                     acct.positions.insert(symbol, pos);

@@ -1,6 +1,6 @@
 use crate::adapter::Adapter;
 use crate::oms::account::AccountState;
-use crate::oms::order::{Order, OrderSide, OrderType};
+use crate::oms::order::{Order, OrderSide, OrderType, OrderState};
 use crate::oms::order_book::OrderBook;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local};
@@ -32,7 +32,7 @@ pub struct HantooConfig {
     pub my_acct: Option<String>,
     pub my_prod: Option<String>,
     pub my_htsid: Option<String>,
-    pub ops: Option<String>, // WebSocket URL (e.g., ws://ops.koreainvestment.com:21000)
+    pub ops: Option<String>, // WebSocket URL
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,7 +52,8 @@ pub struct HantooAdapter {
     approval_key: Mutex<Option<String>>,
     ws_thread: Mutex<Option<thread::JoinHandle<()>>>,
     // Map ClientOrderID -> (OrgNo, OrderNo)
-    order_map: Mutex<HashMap<String, HantooOrderInfo>>,
+    // Changed to Arc<Mutex> to share with WS thread
+    order_map: Arc<Mutex<HashMap<String, HantooOrderInfo>>>,
     // Channel to Engine
     sender: Mutex<Option<mpsc::Sender<IncomingMessage>>>,
     // Subscribed Symbols
@@ -82,8 +83,8 @@ impl HantooAdapter {
             auth_dir: PathBuf::from("auth"),
             approval_key: Mutex::new(None),
 
-            ws_thread: Mutex::new(None), // Thread handle
-            order_map: Mutex::new(HashMap::new()),
+            ws_thread: Mutex::new(None), 
+            order_map: Arc::new(Mutex::new(HashMap::new())),
             sender: Mutex::new(None),
             subscribed_symbols: Mutex::new(Vec::new()),
             debug_ws: Arc::new(AtomicBool::new(false)),
@@ -116,21 +117,7 @@ impl HantooAdapter {
     }
     
     pub fn add_subscription(&self, symbol: String) {
-        // This must be called BEFORE connect() for now
-        // TODO: dynamic subscription
-        // I will implement dynamic subscription in start_ws_thread by defaulting to "005930" or 
-        // reading from this list.
-        // Actually, let's just use a channel to send commands to WS thread if we want to get fancy,
-        // but for MVP, I will hardcode the logic in start_ws_thread to subscribe to "005930" blindly 
-        // or check a list. I'll add the list.
-        // But simplest is: The example will hardcode the subscription logic? No, wrapper.
-        
-        // I will add a method that simply sends the subscription frame if socket was accessible.
-        // Since socket is moved to thread, I can't.
-        
-        // Final Decision: I will modify start_ws_thread to subscribe to "005930" (Samsung) 
-        // and maybe "000660" (Sk Hynix) if requested, or just all in a list.
-        // I'll add `subscribed_symbols` to struct.
+        // Placeholder driven by start_ws_thread using subscribed_symbols
     }
     
     pub(crate) fn get_token(&self) -> Result<String> {
@@ -272,8 +259,6 @@ impl HantooAdapter {
         Ok(key)
     }
 
-
-
     pub fn set_debug_mode(&self, enabled: bool) {
         self.debug_ws.store(enabled, Ordering::Relaxed);
     }
@@ -289,6 +274,7 @@ impl HantooAdapter {
         // Get symbols to subscribe
         let symbols: Vec<String> = self.subscribed_symbols.lock().unwrap().clone();
         let debug_ws = self.debug_ws.clone();
+        let order_map_clone = self.order_map.clone();
         
         let handle = thread::spawn(move || {
             let full_url = format!("{}/tryitout/H0STCNT0", ws_url_str); // Typical suffix
@@ -350,7 +336,7 @@ impl HantooAdapter {
                                             if first == '0' || first == '1' { // Data
                                                 if let Some(s) = &sender {
                                                     // Helper to parse and send
-                                                    if let Some(msg) = Self::parse_ws_message(&text) {
+                                                    if let Some(msg) = Self::parse_ws_message(&text, &order_map_clone) {
                                                         let _ = s.send(msg);
                                                     }
                                                 }
@@ -378,32 +364,17 @@ impl HantooAdapter {
         Ok(())
     }
     
-    fn parse_ws_message(text: &str) -> Option<IncomingMessage> {
-        // Format: encrypted|TR_ID|Key|Data1|Data2...
-        // Data is often pipe separated logic?
-        // Actually, KIS WS is: 
-        // 0|H0STCNT0|005930|...data...
-        // The data part is formatted specifically per TR.
-        // H0STCNT0 (Trade): time|price|...
-        
+    fn parse_ws_message(text: &str, order_map: &Mutex<HashMap<String, HantooOrderInfo>>) -> Option<IncomingMessage> {
         let parts: Vec<&str> = text.split('|').collect();
         if parts.len() < 4 { return None; }
         
         let tr_id = parts[1];
         let symbol = parts[2];
-        let data_part = parts[3..].join("|"); // Rejoin rest
-        let fields: Vec<&str> = data_part.split('^').collect(); // KIS uses ^ often for data fields
-        
-        // If ^ not found, maybe it uses | still?
-        // The example usually implies ^ separator for output?
-        // Let's assume ^ separator for fields inside the data block.
-        // Wait, the structure is 0|TR_ID|KEY|f1^f2^f3...
+        let data_part = parts[3..].join("|"); 
+        let fields: Vec<&str> = data_part.split('^').collect();
         
         match tr_id {
             "H0STCNT0" | "H0SCCNT0" => { // Trade
-                // fields: Time, Price, Change, Rate, ..., Vol, ...
-                // Idx 0: Time, 1: Price, 12: Vol?
-                // Let's try parsing best effort.
                 if fields.len() > 2 {
                     let price = Decimal::from_str(fields[1]).unwrap_or_default();
                     let qty = if fields.len() > 12 { fields[12].parse().unwrap_or(0) } else { 0 };
@@ -417,16 +388,10 @@ impl HantooAdapter {
                 }
             },
             "H0STASP0" => { // Asking Price
-                // fields: Time, Ask1, Bid1, AskQty1, BidQty1...
-                // Idx 0: Time
-                // Idx 3: Ask1, Idx 4: Bid1
-                // Idx 5: AskQty1, Idx 6: BidQty1
-                // And so on for 10 levels.
                 if fields.len() > 5 {
-                    let mut asks = Vec::new();
-                    let mut bids = Vec::new();
-                    
-                    // Level 1
+                     let mut asks = Vec::new();
+                     let mut bids = Vec::new();
+                     
                      let a1 = Decimal::from_str(fields[3]).unwrap_or_default();
                      let b1 = Decimal::from_str(fields[4]).unwrap_or_default();
                      let aq1 = fields[5].parse().unwrap_or(0);
@@ -435,7 +400,6 @@ impl HantooAdapter {
                      asks.push((a1, aq1));
                      bids.push((b1, bq1));
                      
-                     // Helper delta
                      let delta = OrderBookSnapshot {
                          symbol: symbol.to_string(),
                          bids,
@@ -446,25 +410,55 @@ impl HantooAdapter {
                      return Some(IncomingMessage::OrderBookSnapshot(delta));
                 }
             },
-             "H0STCNI0" | "H0STCNI9" => { // Execution Notice
-                 // fields: ... OrderNo, ... Price, Qty ...
-                 // This one is trickier, depends on output format.
-                 // Assuming dummy impl for now or just log.
-                 // We return Execution
-                 return Some(IncomingMessage::Execution {
-                     order_id: "unknown".to_string(),
-                     fill_qty: 0,
-                     fill_price: 0.0,
-                 });
+            "H0STCNI0" | "H0STCNI9" => { // Execution Notice
+                 // fields parsing based on ccnl_notice.py
+                 // 0: CUST_ID, 1: ACNT_NO, 2: ODER_NO, 3: ODER_QTY, ... 
+                 // 9: CNTG_QTY, 10: CNTG_UNPR, ...
+                 // 12: RFUS_YN, 13: CNTG_YN (1: Accept, 2: Execute)
+                 
+                 if fields.len() > 14 {
+                     let order_no = fields[2];
+                     let cntg_yn = fields[13]; // 1 or 2
+                     
+                     // Find Client Order ID
+                     let map = order_map.lock().unwrap();
+                     if let Some((client_id, _)) = map.iter().find(|(_, info)| info.order_no == order_no) {
+                          if cntg_yn == "2" { // Execution
+                               let fill_qty = fields[9].parse::<i64>().unwrap_or(0);
+                               let fill_price = Decimal::from_str(fields[10]).unwrap_or_default();
+                               
+                               return Some(IncomingMessage::Execution {
+                                   order_id: client_id.clone(),
+                                   fill_qty,
+                                   fill_price,
+                               });
+                          } else if cntg_yn == "1" { // Accepted / Modify / Cancel
+                               let rfus_yn = fields[12];
+                               
+                               let state = if rfus_yn == "Y" { 
+                                   OrderState::REJECTED 
+                               } else { 
+                                   // Simply NEW for now, could be CANCELED if msg implies. 
+                                   // But H0STCNI0 is complex. 
+                                   // For MVP, if it is not refused, we assume NEW or PENDING->NEW.
+                                   OrderState::NEW 
+                               };
+                               
+                               return Some(IncomingMessage::OrderUpdate {
+                                   order_id: client_id.clone(),
+                                   state,
+                                   msg: None,
+                                   updated_at: Local::now().timestamp_millis() as f64 / 1000.0,
+                               });
+                          }
+                     } else {
+                         // Unknown order (maybe manual order not in OMS). Log/Ignore?
+                         warn!("Received notice for unknown order_no: {}", order_no);
+                     }
+                 }
              },
             "H0UNASP0" => { // Asking Price (Total - 10 levels)
-                // 3-12: ASKP1-10
-                // 13-22: BIDP1-10
-                // 23-32: ASKP_RSQN1-10
-                // 33-42: BIDP_RSQN1-10
-
                 if fields.len() > 42 {
-                    // Correct symbol is fields[0] (e.g., 005930) not parts[2] (e.g., 001)
                     let symbol = fields[0]; 
                     
                     let mut asks = Vec::new();
@@ -476,15 +470,10 @@ impl HantooAdapter {
                          let ask_q_idx = 23 + i;
                          let bid_q_idx = 33 + i;
 
-                         let ap_str = fields[ask_p_idx];
-                         let bp_str = fields[bid_p_idx];
-                         let aq_str = fields[ask_q_idx];
-                         let bq_str = fields[bid_q_idx];
-
-                         let ap = Decimal::from_str(ap_str).unwrap_or_default();
-                         let bp = Decimal::from_str(bp_str).unwrap_or_default();
-                         let aq: i64 = aq_str.parse().unwrap_or(0);
-                         let bq: i64 = bq_str.parse().unwrap_or(0);
+                         let ap = Decimal::from_str(fields[ask_p_idx]).unwrap_or_default();
+                         let bp = Decimal::from_str(fields[bid_p_idx]).unwrap_or_default();
+                         let aq: i64 = fields[ask_q_idx].parse().unwrap_or(0);
+                         let bq: i64 = fields[bid_q_idx].parse().unwrap_or(0);
 
                          if ap > Decimal::ZERO { asks.push((ap, aq)); }
                          if bp > Decimal::ZERO { bids.push((bp, bq)); }
@@ -492,7 +481,6 @@ impl HantooAdapter {
 
                  return Some(IncomingMessage::OrderBookSnapshot(crate::oms::order_book::OrderBookSnapshot {
                      symbol: symbol.to_string(),
-                     
                      bids: bids.clone(),
                      asks: asks.clone(),
                      update_id: Local::now().timestamp_millis(),
@@ -511,7 +499,6 @@ impl Adapter for HantooAdapter {
         let _ = self.get_token()?;
         info!("HantooAdapter connected (token verified)");
         
-        // Start WS
         if let Err(e) = self.start_ws_thread() {
             warn!("Failed to start WebSocket: {}", e);
         }
@@ -528,10 +515,8 @@ impl Adapter for HantooAdapter {
         let token = self.get_token()?;
         let url = format!("{}/uapi/domestic-stock/v1/trading/order-cash", self.config.prod);
         
-        // Updated TR_ID based on order_cash.py
         let is_virtual = self.config.prod.contains("openapivts");
         let tr_id = match order.side {
-            // "TTTC0012U" (Buy), "TTTC0011U" (Sell)
             OrderSide::BUY => if is_virtual { "VTTC0012U" } else { "TTTC0012U" },
             OrderSide::SELL => if is_virtual { "VTTC0011U" } else { "TTTC0011U" },
         };
@@ -554,7 +539,7 @@ impl Adapter for HantooAdapter {
             "ORD_DVSN": ord_dvsn,
             "ORD_QTY": order.quantity.to_string(),
             "ORD_UNPR": price_str,
-            "EXCG_ID_DVSN_CD": "KRX", // Required by order_cash.py
+            "EXCG_ID_DVSN_CD": "KRX",
             "SLL_TYPE": "", 
             "CNDT_PRIC": ""
         });
@@ -570,10 +555,6 @@ impl Adapter for HantooAdapter {
             .send()?;
             
         if resp.status().is_success() {
-             // Parse Body to get OrgNo and OrderNo
-             // Response format: {"rt_cd": "0", "msg1": "...", "output": {"KRX_FWDG_ORD_ORGNO": "...", "ODNO": "...", "ORD_TMD": "..."}}
-             
-             // We can read text once
              let text = resp.text().unwrap_or_default();
              let data: Value = serde_json::from_str(&text).map_err(|e| anyhow!("Failed to parse response: {}", e))?;
              
@@ -584,7 +565,6 @@ impl Adapter for HantooAdapter {
                  if !org_no.is_empty() && !order_no.is_empty() {
                      info!("Order Placed: OrgNo={}, OrderNo={}", org_no, order_no);
                      
-                     // Store in map
                      if let Some(client_id) = &order.order_id {
                           let info = HantooOrderInfo { org_no, order_no };
                           let mut map = self.order_map.lock().unwrap();
@@ -605,7 +585,6 @@ impl Adapter for HantooAdapter {
         let token = self.get_token()?;
         let url = format!("{}/uapi/domestic-stock/v1/trading/order-rvsecncl", self.config.prod);
         
-        // Find OrgNo and OrderNo
         let (org_no, order_no) = {
             let map = self.order_map.lock().unwrap();
             match map.get(order_id) {
@@ -627,9 +606,9 @@ impl Adapter for HantooAdapter {
             "ACNT_PRDT_CD": prdt,
             "KRX_FWDG_ORD_ORGNO": org_no,
             "ORGN_ODNO": order_no,
-            "ORD_DVSN": "00", // Usually 00 for Cancel? Check docs. 02 is for Code? No, ORD_DVSN is Order Division (Limit/Market). For cancel, usually inherit or 00.
-            "RVSE_CNCL_DVSN_CD": "02", // 01: Modify, 02: Cancel
-            "ORD_QTY": "0", // 0 for Cancel All usually? Or specific quantity. The example uses "0" with QTY_ALL_ORD_YN="Y" often, or total qty. Let's assume Cancel All Y.
+            "ORD_DVSN": "00", 
+            "RVSE_CNCL_DVSN_CD": "02",
+            "ORD_QTY": "0", 
             "ORD_UNPR": "0",
             "QTY_ALL_ORD_YN": "Y",
             "EXCG_ID_DVSN_CD": "KRX"
@@ -664,14 +643,13 @@ impl Adapter for HantooAdapter {
     }
 
     fn get_order_book_snapshot(&self, symbol: &str) -> Result<OrderBook> {
-        // Use inquire-asking-price-exp-ccn (FHKST01010200)
         let token = self.get_token()?;
         let url = format!("{}/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn", self.config.prod);
         
         let tr_id = "FHKST01010200";
         
         let params = [
-            ("FID_COND_MRKT_DIV_CODE", "J"), // KRX
+            ("FID_COND_MRKT_DIV_CODE", "J"),
             ("FID_INPUT_ISCD", symbol)
         ];
 
@@ -693,7 +671,6 @@ impl Adapter for HantooAdapter {
              return Err(anyhow!("API Error: {}", data["msg1"].as_str().unwrap_or("")));
         }
         
-        // Output1 has askp/bidp 1..10
         let mut ob = OrderBook::new(symbol.to_string());
         if let Some(out1) = data["output1"].as_object() {
             fn get_dec(obj: &serde_json::Map<String, Value>, key: &str) -> Decimal {
@@ -719,7 +696,7 @@ impl Adapter for HantooAdapter {
                 if bp > Decimal::ZERO { ob.bids.insert(bp, bq); }
             }
         }
-        ob.timestamp = Local::now().timestamp_millis() as f64 / 1000.0; // Approximation
+        ob.timestamp = Local::now().timestamp_millis() as f64 / 1000.0;
         
         Ok(ob)
     }
@@ -731,7 +708,6 @@ impl Adapter for HantooAdapter {
         let cano_config = self.config.my_acct.as_deref().unwrap_or("");
         let prdt_config = self.config.my_prod.as_deref().unwrap_or("01");
         
-        // If account_id is provided and valid (length 10), use it. Otherwise use config.
         let (cano, prdt) = if _account_id.len() >= 10 {
              (&_account_id[0..8], &_account_id[8..])
         } else {
@@ -775,20 +751,16 @@ impl Adapter for HantooAdapter {
              return Err(anyhow!("API Error: {}", msg));
         }
 
-        // Logic to parse output1 (Holdings) and output2 (Balance) from inquire_balance.py structure
         let mut acct = AccountState::new();
         
-        // Output2: Balance
-        // dnca_tot_amt: Deposit
         if let Some(output2) = data.get("output2").and_then(|v| v.as_array()).and_then(|a| a.first()) {
             if let Some(deposit_str) = output2["dnca_tot_amt"].as_str() {
-                if let Ok(bal) = deposit_str.parse::<f64>() {
+                if let Ok(bal) = Decimal::from_str(deposit_str) {
                     acct.balance = bal;
                 }
             }
         }
         
-        // Output1: Positions
         use crate::oms::account::Position;
         if let Some(output1) = data.get("output1").and_then(|v| v.as_array()) {
             for item in output1 {
@@ -798,15 +770,17 @@ impl Adapter for HantooAdapter {
                 let curr_str = item["prpr"].as_str().unwrap_or("0");
                 
                 let qty = qty_str.parse::<i64>().unwrap_or(0);
-                if qty > 0 {
-                    let avg_price = price_str.parse::<f64>().unwrap_or(0.0);
-                    let curr_price = curr_str.parse::<f64>().unwrap_or(0.0);
-                    let pos = Position::new(symbol, qty, avg_price, curr_price);
-                    acct.positions.insert(pos.symbol.clone(), pos);
+                let price = Decimal::from_str(price_str).unwrap_or_default();
+                let curr = Decimal::from_str(curr_str).unwrap_or_default();
+                
+                if qty != 0 {
+                    acct.positions.insert(
+                        symbol.clone(),
+                        Position::new(symbol, qty, price, curr)
+                    );
                 }
             }
         }
-
         Ok(acct)
     }
 }
