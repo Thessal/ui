@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use crate::oms::order::{Order, OrderState, ExecutionStrategy, OrderSide};
+use crate::oms::order::{Order, OrderState, ExecutionStrategy, OrderSide, OrderType};
 use crate::oms::order_book::OrderBook;
 use crate::oms::account::AccountState;
 use crate::adapter::Adapter;
@@ -15,7 +15,8 @@ use chrono::Local;
 use std::sync::mpsc::Receiver;
 use crate::adapter::{IncomingMessage, Trade};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::prelude::{FromPrimitive, FromStr};
+use crate::strategy::base::StrategyAction;
 use anyhow::anyhow;
 
 #[derive(Clone)]
@@ -216,6 +217,60 @@ impl OMSEngine {
             },
             ExecutionStrategy::CHAIN => {
                 order.state = OrderState::CREATED;
+                
+                // Parse Strategy Params
+                if let Some(price_str) = order.strategy_params.get("trigger_price") {
+                    if let Ok(trigger_price) = Decimal::from_str(price_str) {
+                         let side_str = order.strategy_params.get("trigger_side").map(|s| s.as_str()).unwrap_or("BUY");
+                         let trigger_side = match side_str {
+                             "SELL" => OrderSide::SELL,
+                             _ => OrderSide::BUY,
+                         };
+                         let ts_str = order.strategy_params.get("trigger_timestamp").map(|s| s.as_str()).unwrap_or("0");
+                         let trigger_timestamp = ts_str.parse::<f64>().unwrap_or(0.0);
+                         
+                         // Chained Order Params
+                         let chained_symbol = order.strategy_params.get("chained_symbol").unwrap_or(&order.symbol).clone();
+                         let chained_side_str = order.strategy_params.get("chained_side").map(|s| s.as_str()).unwrap_or("BUY");
+                         let chained_side = match chained_side_str {
+                             "SELL" => OrderSide::SELL,
+                             _ => OrderSide::BUY,
+                         };
+                         let chained_qty_str = order.strategy_params.get("chained_quantity").map(|s| s.as_str()).unwrap_or("0");
+                         let chained_qty = chained_qty_str.parse::<i64>().unwrap_or(0);
+                         let chained_price = order.strategy_params.get("chained_price").cloned();
+                         
+                         let chained_order = Order::new(
+                             chained_symbol,
+                             chained_side,
+                             OrderType::LIMIT,
+                             chained_qty,
+                             chained_price,
+                             Some(ExecutionStrategy::NONE),
+                             None,
+                             None
+                         );
+                         
+                         let strat = crate::strategy::chain::ChainStrategy::new(
+                             order.order_id.clone().unwrap(),
+                             trigger_side,
+                             trigger_price,
+                             trigger_timestamp,
+                             chained_order
+                         );
+                         
+                         {
+                             let mut strats = self.active_strategies.lock().unwrap();
+                             strats.push(Box::new(strat));
+                         }
+                    } else {
+                        // Error parsing trigger price
+                        println!("Failed to parse trigger price for Chain Order");
+                    }
+                } else {
+                     println!("Missing trigger params for Chain Order");
+                }
+
                 let mut orders = self.orders.lock().unwrap();
                 let oid = order.order_id.clone().unwrap_or_default();
                 orders.insert(oid.clone(), order.clone());
@@ -347,31 +402,31 @@ impl OMSEngine {
              order.update_state(state.clone(), msg);
         }
         
-        // Notify Strategies (Disabled for now due to decimal refactor)
-        // {
-        //     let mut strats = self.active_strategies.lock().unwrap();
-        //     let mut triggered = Vec::new();
-        //      for strat in strats.iter_mut() {
-        //          if let Ok(Some(action)) = strat.on_order_status_update(order_id, state.clone()) {
-        //              triggered.push(action);
-        //          }
-        //      }
-        //      drop(strats);
+        // Notify Strategies (TODO: Move to async execution to avoid blocking)
+        {
+            let mut strats = self.active_strategies.lock().unwrap();
+            let mut actions = Vec::new();
+             for strat in strats.iter_mut() {
+                 if let Ok(action) = strat.on_order_status_update(order_id, state.clone()) {
+                     if !matches!(action, StrategyAction::None) {
+                         actions.push(action);
+                     }
+                 }
+             }
+             drop(strats);
              
-        //      if !triggered.is_empty() {
-        //          Python::with_gil(|py| {
-        //              for o in triggered {
-        //                  if o.state == OrderState::PENDING_CANCEL {
-        //                      if let Some(oid) = o.order_id {
-        //                          let _ = self.cancel_order(py, oid);
-        //                      }
-        //                  } else {
-        //                      let _ = self.send_order(py, o);
-        //                  }
-        //              }
-        //          });
-        //      }
-        // }
+             for action in actions { // Someday we could do internal matching of opposite actions (e.g. buy and sell at same price)
+                 match action {
+                     StrategyAction::PlaceOrder(o) => {
+                         let _ = self.send_order_internal(o);
+                     },
+                     StrategyAction::CancelOrder(oid) => {
+                         let _ = self.cancel_order_internal(oid);
+                     },
+                     StrategyAction::None => {}
+                 }
+             }
+        }
     }
 
     pub fn on_market_data(&self, _py: Python, _data: PyObject) -> PyResult<()> {
@@ -419,7 +474,32 @@ impl OMSEngine {
             self.reconcile_orderbook(&symbol)?;
             return Ok(()); // Reconcile updates book
         }
-        // TODO : triggered orders logic
+        // Strategy Execution (TODO: Move to async execution to avoid blocking market data processing)
+        {
+            let mut strats = self.active_strategies.lock().unwrap();
+            let mut actions = Vec::new();
+            
+            for strat in strats.iter_mut() {
+                if let Ok(action) = strat.on_order_book_update(&book) {
+                    if !matches!(action, StrategyAction::None) {
+                        actions.push(action);
+                    }
+                }
+            }
+            drop(strats); // Release lock before processing actions (which might lock orders/adapter)
+            // TODO: Internal netting 
+            for action in actions {
+                match action {
+                    StrategyAction::PlaceOrder(o) => {
+                         let _ = self.send_order_internal(o);
+                    },
+                    StrategyAction::CancelOrder(oid) => {
+                         let _ = self.cancel_order_internal(oid);
+                    },
+                    StrategyAction::None => {}
+                }
+            }
+        }
         
         Ok(())
     }

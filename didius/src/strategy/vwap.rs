@@ -1,6 +1,6 @@
 use crate::oms::order::{Order, OrderSide, OrderType, OrderState, ExecutionStrategy};
 use crate::oms::order_book::OrderBook;
-use crate::strategy::base::Strategy;
+use crate::strategy::base::{Strategy, StrategyAction};
 use anyhow::{Result, anyhow};
 use rust_decimal::prelude::*;
 use std::collections::HashMap;
@@ -91,7 +91,7 @@ impl VWAPStrategy {
 }
 
 impl Strategy for VWAPStrategy {
-    fn on_order_book_update(&mut self, book: &OrderBook) -> Result<Option<Order>> {
+    fn on_order_book_update(&mut self, book: &OrderBook) -> Result<StrategyAction> {
         let now = book.timestamp; // Use book time
         // or Local::now()? Book time is safer for simulation constraints.
         
@@ -107,28 +107,8 @@ impl Strategy for VWAPStrategy {
              if let Some(oid) = &self.current_slice_order_id {
                  if !self.waiting_for_cancel {
                      self.waiting_for_cancel = true;
-                     // Create Cancel Order? 
-                     // The Strategy output is Option<Order>. A Cancel is an Action.
-                     // The Order struct has state.
-                     // But we usually send a "Cancel Request" object, or modify state.
-                     // Interface `cancel_order` by ID.
-                     // A Strategy returning `Order` usually implies placement.
-                     // If we want to cancel, we might need a meta-enum `StrategyAction`?
-                     // Or, the Engine interprets a specific Order state/type?
-                     // Or we return `None` here but call engine directly? 
-                     // Strategy doesn't hold engine ref.
-                     
-                     // Let's assume we return an Order with state PENDING_CANCEL and ID populated? 
-                     // Engine: if order.state == PENDING_CANCEL, call cancel?
-                     
-                     let mut cancel_req = Order::new("".into(), OrderSide::BUY, OrderType::MARKET, 0, None, None, None, None);
-                     cancel_req.order_id = Some(oid.clone());
-                     cancel_req.state = OrderState::PENDING_CANCEL; 
-                     
-                     // Next trigger only after cancel resolved? 
-                     // Or we optimistically advance trigger?
                      self.next_trigger_sec += self.interval_sec; 
-                     return Ok(Some(cancel_req));
+                     return Ok(StrategyAction::CancelOrder(oid.clone()));
                  }
                  // If already waiting, do nothing until confirmed.
              } else {
@@ -148,19 +128,19 @@ impl Strategy for VWAPStrategy {
                  self.current_slice_order_id = Some(uuid);
                  
                  self.next_trigger_sec += self.interval_sec;
-                 return Ok(Some(order));
+                 return Ok(StrategyAction::PlaceOrder(order));
              }
         }
         
-        Ok(None)
+        Ok(StrategyAction::None)
     }
 
-    fn on_trade_update(&mut self, price: f64) -> Result<Option<Order>> {
+    fn on_trade_update(&mut self, price: f64) -> Result<StrategyAction> {
         self.last_known_price = price;
-        Ok(None)
+        Ok(StrategyAction::None)
     }
     
-    fn on_order_status_update(&mut self, order_id: &str, state: OrderState) -> Result<Option<Order>> {
+    fn on_order_status_update(&mut self, order_id: &str, state: OrderState) -> Result<StrategyAction> {
         if let Some(curr) = &self.current_slice_order_id {
             if curr == order_id {
                 match state {
@@ -186,6 +166,6 @@ impl Strategy for VWAPStrategy {
                 }
             }
         }
-        Ok(None)
+        Ok(StrategyAction::None)
     }
 }

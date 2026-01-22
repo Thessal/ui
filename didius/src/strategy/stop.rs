@@ -1,6 +1,6 @@
 use crate::oms::order::{Order, OrderSide, OrderType, OrderState};
 use crate::oms::order_book::OrderBook;
-use crate::strategy::base::Strategy;
+use crate::strategy::base::{Strategy, StrategyAction};
 use anyhow::Result;
 use rust_decimal::prelude::*;
 
@@ -21,7 +21,7 @@ impl StopStrategy {
 }
 
 impl Strategy for StopStrategy {
-    fn on_order_book_update(&mut self, _book: &OrderBook) -> Result<Option<Order>> {
+    fn on_order_book_update(&mut self, _book: &OrderBook) -> Result<StrategyAction> {
         // Stop triggers usually based on Last Trade Price, but can be Mark Price or Best Bid/Ask without trade.
         // If we use Best Bid/Ask:
         // Buy Stop: Trigger if Best Ask >= Trigger? Or Last Price >= Trigger.
@@ -29,12 +29,12 @@ impl Strategy for StopStrategy {
         
         // For simplicity, let's assume we triggered on trade update, not book update.
         // But if user wants us to use MidPrice or something?
-        Ok(None)
+        Ok(StrategyAction::None)
     }
 
-    fn on_trade_update(&mut self, price: f64) -> Result<Option<Order>> {
+    fn on_trade_update(&mut self, price: f64) -> Result<StrategyAction> {
         if self.triggered {
-            return Ok(None);
+            return Ok(StrategyAction::None);
         }
 
         let side = &self.order_to_send.side;
@@ -58,9 +58,9 @@ impl Strategy for StopStrategy {
             let mut o = self.order_to_send.clone();
             // Ensure state is New/Pending
             o.state = OrderState::CREATED; // Reset state so engine processes it as new
-            return Ok(Some(o));
+            return Ok(StrategyAction::PlaceOrder(o));
         }
 
-        Ok(None)
+        Ok(StrategyAction::None)
     }
 }
