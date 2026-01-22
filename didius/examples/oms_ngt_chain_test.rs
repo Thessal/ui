@@ -156,7 +156,7 @@ fn main() -> Result<()> {
                     // So TriggerSide BUY (monitor Bid) >= Trigger (Ask)?
                     // Logic seems compatible.
 
-                    params.insert("trigger_timestamp".to_string(), "0".to_string()); // Time trigger disabled?
+                    params.insert("trigger_timestamp".to_string(), "0".to_string()); // FIXME:Time trigger disabled?
 
                     params.insert("chained_symbol".to_string(), symbol.clone());
                     params.insert("chained_side".to_string(), "BUY".to_string());

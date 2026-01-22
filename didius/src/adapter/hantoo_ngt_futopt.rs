@@ -1,6 +1,6 @@
 use crate::adapter::Adapter;
 use crate::oms::account::{AccountState, Position};
-use crate::oms::order::{Order, OrderSide, OrderType};
+use crate::oms::order::{Order, OrderSide, OrderType, OrderState};
 use crate::oms::order_book::OrderBook;
 use anyhow::{anyhow, Result};
 use log::{error, info, warn};
@@ -39,9 +39,25 @@ struct NightOrderInfo {
     order_no: String,
 }
 
+#[derive(Debug)]
+enum NightIncomingEvent {
+    Trade(Trade),
+    Snapshot(crate::oms::order_book::OrderBookSnapshot),
+    Notice(NightNotice),
+}
+
+#[derive(Debug)]
+struct NightNotice {
+    order_no: String,
+    cntg_yn: String,
+    fill_qty: String,
+    fill_price: String,
+    rfus_yn: String,
+}
+
 pub struct HantooNightAdapter {
     inner: HantooAdapter,
-    order_map: Mutex<HashMap<String, NightOrderInfo>>,
+    order_map: Arc<Mutex<HashMap<String, NightOrderInfo>>>,
     ws_thread: Mutex<Option<thread::JoinHandle<()>>>,
     sender: Mutex<Option<mpsc::Sender<IncomingMessage>>>,
     debug_ws: Arc<AtomicBool>,
@@ -50,12 +66,12 @@ pub struct HantooNightAdapter {
 impl HantooNightAdapter {
     pub fn new(config_path: &str) -> Result<Self> {
         let inner = HantooAdapter::new(config_path)?;
-        let acct = inner.config().my_acct_future.clone().unwrap_or_default();
-        let prod = inner.config().my_prod_future.clone().unwrap_or_default();
-        println!("[DEBUG] HantooNightAdapter initialized with Account: {}, Prod: {}", acct, prod);
+        let acct = inner.config().my_acct.clone().unwrap_or_default();
+        let prod = inner.config().my_prod.clone().unwrap_or_default();
+        println!("HantooNightAdapter initialized with Account: {}, Prod: {}", acct, prod);
         Ok(HantooNightAdapter {
             inner,
-            order_map: Mutex::new(HashMap::new()),
+            order_map: Arc::new(Mutex::new(HashMap::new())),
             ws_thread: Mutex::new(None),
             sender: Mutex::new(None),
             debug_ws: Arc::new(AtomicBool::new(false)),
@@ -83,8 +99,8 @@ impl HantooNightAdapter {
         let approval_key = self.inner.get_ws_approval_key()?;
         
         let sender = self.sender.lock().unwrap().clone();
-
         let debug_ws = self.debug_ws.clone();
+        let order_map_clone = self.order_map.clone();
 
         let handle = thread::spawn(move || {
             let full_url = format!("{}/tryitout/H0STCNT0", ws_url_str); 
@@ -124,6 +140,21 @@ impl HantooNightAdapter {
                         info!("Subscribed to Night Future Ask {} (H0MFASP0)", symbol);
                     }
 
+                    // Subscribe to Private Execution Notices (H0MFCNI0)
+                    let my_htsid = config.my_htsid.clone().unwrap_or_default();
+                    if !my_htsid.is_empty() {
+                         let tr_id_notice = "H0MFCNI0";
+                         let sub_body_notice = serde_json::json!({
+                            "header": {"approval_key": approval_key, "custtype": "P", "tr_type": "1", "content-type": "utf-8"},
+                            "body": {"input": {"tr_id": tr_id_notice, "tr_key": my_htsid}}
+                         });
+                         if let Err(e) = socket.write_message(Message::Text(sub_body_notice.to_string())) {
+                             error!("Failed to subscribe to notice: {}", e);
+                         } else {
+                             info!("Subscribed to Night Future Notice (H0MFCNI0) for {}", my_htsid);
+                         }
+                    }
+
                     loop {
                         match socket.read_message() {
                             Ok(msg) => {
@@ -140,8 +171,10 @@ impl HantooNightAdapter {
                                         if let Some(first) = text.chars().next() {
                                             if first == '0' || first == '1' {
                                                 if let Some(s) = &sender {
-                                                    if let Some(m) = Self::parse_ws_message(&text) {
-                                                        let _ = s.send(m);
+                                                    if let Some(event) = Self::parse_ws_message(&text) {
+                                                        if let Some(m) = Self::process_event(event, &order_map_clone) {
+                                                            let _ = s.send(m);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -168,13 +201,13 @@ impl HantooNightAdapter {
         Ok(())
     }
 
-    fn parse_ws_message(text: &str) -> Option<IncomingMessage> {
+    fn parse_ws_message(text: &str) -> Option<NightIncomingEvent> {
         // 0|TR_ID|KEY|Data...
         let parts: Vec<&str> = text.split('|').collect();
         if parts.len() < 4 { return None; }
         
         let tr_id = parts[1];
-        let symbol = parts[2];
+        // let symbol = parts[2]; // Unused locally if we parse fields
         let data_part = parts[3..].join("|");
         // Assuming ^ separator as per Stock examples, but need to verify for Night Future.
         // Usually KIS uses ^.
@@ -182,11 +215,6 @@ impl HantooNightAdapter {
         
         match tr_id {
             "H0MFCNT0" => { // Night Future Trade
-                // fields:
-                // 0: Symbol (repeated?) or Time?
-                // `krx_ngt_futures_ccnl.py` columns:
-                // 0: futs_shrn_iscd, 1: bsop_hour, 5: futs_prpr(Price), 9: last_cnqn(Qty)?
-                // Let's assume the data_part STARTS with field 0.
                 if fields.len() > 9 {
                     // Correct symbol is fields[0] (e.g., A05602)
                     let symbol = fields[0]; 
@@ -197,7 +225,7 @@ impl HantooNightAdapter {
                     let price = Decimal::from_str(price_str).unwrap_or_default();
                     let qty = qty_str.parse().unwrap_or(0);
                     
-                    return Some(IncomingMessage::Trade(Trade {
+                    return Some(NightIncomingEvent::Trade(Trade {
                         symbol: symbol.to_string(),
                         price,
                         quantity: qty,
@@ -205,58 +233,29 @@ impl HantooNightAdapter {
                     }));
                 }
             },
-            "H0MFASP0" => { // Night Future Asking Price (5 levels)
-                // fields:
-                // 0: Symbol? or Time? 
-                // krx_ngt_futures_asking_price.py columns:
-                // 0: futs_shrn_iscd, 1: bsop_hour, 2: futs_askp1, 3: futs_askp2... 6: futs_askp5 (idx 6)
-                // 7: futs_bidp1 (idx 7), ... 11: futs_bidp5
-                // 12: askp_csnu1, ... 16: askp_csnu5
-                // 17: bidp_csnu1, ... 21: bidp_csnu5
-                // 22: ask_rsqn1, ... 26: ask_rsqn5 (qty)
-                // 27: bid_rsqn1, ... 31: bid_rsqn5 (qty)
-                
-                // Assuming data starts with 0: futs_shrn_iscd.
+            "H0MFASP0" => { // Night Future Asking Price
                 if fields.len() > 31 {
-                    // Correct symbol is fields[0]
                     let symbol = fields[0];
-                    
                     let mut asks = Vec::new();
                     let mut bids = Vec::new();
                     
                     // 5 Levels
                     for i in 0..5 {
-                        // Ask: Price at 2+i, Qty at 22+i
                         let price_idx = 2 + i;
                         let qty_idx = 22 + i;
+                        let price = Decimal::from_str(fields[price_idx]).unwrap_or_default();
+                        let qty: i64 = fields[qty_idx].parse().unwrap_or(0);
+                        if price > Decimal::ZERO { asks.push((price, qty)); }
                         
-                        let price_str = fields[price_idx];
-                        let qty_str = fields[qty_idx];
-                        
-                        let price = Decimal::from_str(price_str).unwrap_or_default();
-                        let qty: i64 = qty_str.parse().unwrap_or(0);
-                        
-                        if price > Decimal::ZERO {
-                             asks.push((price, qty));
-                        }
-                        
-                        // Bid: Price at 7+i, Qty at 27+i
                         let price_idx_b = 7 + i;
                         let qty_idx_b = 27 + i;
-                        
-                        let price_str_b = fields[price_idx_b];
-                        let qty_str_b = fields[qty_idx_b];
-                        
-                        let price_b = Decimal::from_str(price_str_b).unwrap_or_default();
-                        let qty_b: i64 = qty_str_b.parse().unwrap_or(0);
-                        
-                        if price_b > Decimal::ZERO {
-                             bids.push((price_b, qty_b));
-                        }
+                        let price_b = Decimal::from_str(fields[price_idx_b]).unwrap_or_default();
+                        let qty_b: i64 = fields[qty_idx_b].parse().unwrap_or(0);
+                        if price_b > Decimal::ZERO { bids.push((price_b, qty_b)); }
                     }
                     
-                    return Some(IncomingMessage::OrderBookSnapshot(crate::oms::order_book::OrderBookSnapshot {
-                        symbol: symbol.to_string(),
+                    return Some(NightIncomingEvent::Snapshot(crate::oms::order_book::OrderBookSnapshot {
+                         symbol: symbol.to_string(),
                          bids: bids.clone(),
                          asks: asks.clone(),
                          update_id: Local::now().timestamp_millis(),
@@ -264,9 +263,66 @@ impl HantooNightAdapter {
                     }));
                 }
             },
-            _ => {}
+            "H0MFCNI0" => { // Night Future Execution/Order Notice
+                if fields.len() > 13 {
+                    let order_no = fields[2].to_string();
+                    let cntg_yn = fields[13].to_string();
+                    let fill_qty = fields[9].to_string();
+                    let fill_price = fields[10].to_string();
+                    let rfus_yn = if fields.len() > 11 { fields[11].to_string() } else { "".to_string() };
+                    
+                    return Some(NightIncomingEvent::Notice(NightNotice {
+                        order_no,
+                        cntg_yn,
+                        fill_qty,
+                        fill_price,
+                        rfus_yn,
+                    }));
+                }
+            },
+            _ => {
+                // info!("Unknown TR_ID: {}", tr_id);
+            }
         }
         None
+    }
+
+    fn process_event(event: NightIncomingEvent, order_map: &Mutex<HashMap<String, NightOrderInfo>>) -> Option<IncomingMessage> {
+        match event {
+            NightIncomingEvent::Trade(t) => Some(IncomingMessage::Trade(t)),
+            NightIncomingEvent::Snapshot(s) => Some(IncomingMessage::OrderBookSnapshot(s)),
+            NightIncomingEvent::Notice(n) => {
+                let map = order_map.lock().unwrap();
+                if let Some((client_id, _)) = map.iter().find(|(_, info)| info.order_no == n.order_no) {
+                    if n.cntg_yn == "2" { // Execution
+                        let fill_qty = n.fill_qty.parse::<i64>().unwrap_or(0);
+                        let fill_price = Decimal::from_str(&n.fill_price).unwrap_or_default();
+                        
+                        info!("Night Execution: {} qty={} price={}", client_id, fill_qty, fill_price);
+                        return Some(IncomingMessage::Execution {
+                            order_id: client_id.clone(),
+                            fill_qty,
+                            fill_price,
+                        });
+                    } else { // Accept/Modify/Cancel/Reject
+                         // Use n.rfus_yn if needed
+                         let _ = n.rfus_yn; 
+                         
+                         let state = OrderState::NEW; // Default to NEW/OPEN
+                         
+                         return Some(IncomingMessage::OrderUpdate {
+                             order_id: client_id.clone(),
+                             state,
+                             msg: None,
+                             updated_at: Local::now().timestamp_millis() as f64 / 1000.0,
+                         });
+                    }
+                } else {
+                     // println!("Unknown OrderNo in Notice: {}", n.order_no);
+                }
+                None
+            }
+        }
     }
 
     pub fn get_night_future_list(&self) -> Result<Vec<Value>> {
