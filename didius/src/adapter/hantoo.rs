@@ -38,7 +38,10 @@ pub struct HantooConfig {
     pub prod: String, // Base URL
     #[serde(alias = "my_acct_stock")]
     pub my_acct: Option<String>,
+    pub my_acct_future: Option<String>,
+    #[serde(alias = "my_prod_stock")]
     pub my_prod: Option<String>,
+    pub my_prod_future: Option<String>,
     pub my_htsid: Option<String>,
     pub ops: Option<String>, // WebSocket URL
 }

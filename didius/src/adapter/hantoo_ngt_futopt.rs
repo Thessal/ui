@@ -50,6 +50,9 @@ pub struct HantooNightAdapter {
 impl HantooNightAdapter {
     pub fn new(config_path: &str) -> Result<Self> {
         let inner = HantooAdapter::new(config_path)?;
+        let acct = inner.config().my_acct_future.clone().unwrap_or_default();
+        let prod = inner.config().my_prod_future.clone().unwrap_or_default();
+        println!("[DEBUG] HantooNightAdapter initialized with Account: {}, Prod: {}", acct, prod);
         Ok(HantooNightAdapter {
             inner,
             order_map: Mutex::new(HashMap::new()),
@@ -393,8 +396,8 @@ impl Adapter for HantooNightAdapter {
 
         // Params for Night Future
         let body = serde_json::json!({
-            "CANO": config.my_acct.as_deref().unwrap_or(""), 
-            "ACNT_PRDT_CD": config.my_prod.as_deref().unwrap_or("01"),
+            "CANO": config.my_acct_future.as_deref().unwrap_or(""), 
+            "ACNT_PRDT_CD": config.my_prod_future.as_deref().unwrap_or("01"),
             "SHTN_PDNO": order.symbol,     // Short Product No (e.g. 101W09)
             "ORD_QTY": order.quantity.to_string(),
             "UNIT_PRICE": price_str,
@@ -407,6 +410,10 @@ impl Adapter for HantooNightAdapter {
             "FUOP_ITEM_DVSN_CD": ""
         });
 
+        // Result Debug
+        let body_str = serde_json::to_string_pretty(&body).unwrap_or_default();
+        println!("Night Order Request: URL={} Body={}", url, body_str);
+
         let resp = client.post(&url)
             .header("content-type", "application/json")
             .header("authorization", format!("Bearer {}", token))
@@ -417,8 +424,11 @@ impl Adapter for HantooNightAdapter {
             .json(&body)
             .send()?;
             
-        if resp.status().is_success() {
-             let text = resp.text().unwrap_or_default();
+        let status = resp.status();
+        let text = resp.text().unwrap_or_default();
+        println!("Night Order Response: Status={} Body={}", status, text);
+
+        if status.is_success() {
              let data: Value = serde_json::from_str(&text).map_err(|e| anyhow!("Parse error: {}", e))?;
              
              if let Some(output) = data.get("output") {
@@ -426,7 +436,7 @@ impl Adapter for HantooNightAdapter {
                  let order_no = output["ODNO"].as_str().unwrap_or("").to_string();
                  
                  if !org_no.is_empty() && !order_no.is_empty() {
-                     info!("Night Order Placed: Org={}, No={}", org_no, order_no);
+                     println!("Night Order Placed: Org={}, No={}", org_no, order_no);
                      
                      if let Some(client_id) = &order.order_id {
                          let mut map = self.order_map.lock().unwrap();
@@ -437,12 +447,11 @@ impl Adapter for HantooNightAdapter {
              } else {
                  // Check if rt_cd != 0
                  let msg = data["msg1"].as_str().unwrap_or("Unknown");
-                 error!("Night Order Failed (RT!=0): {}", msg);
+                 println!("Night Order Failed (RT!=0): {}", msg);
                  Ok(false)
              }
         } else {
-             let text = resp.text().unwrap_or_default();
-             error!("Night Order Request Failed: {}", text);
+             println!("Night Order Request Failed: {}", text);
              Ok(false)
         }
     }
@@ -464,8 +473,8 @@ impl Adapter for HantooNightAdapter {
         
         // Cancel Body
         let body = serde_json::json!({
-            "CANO": config.my_acct.as_deref().unwrap_or(""), 
-            "ACNT_PRDT_CD": config.my_prod.as_deref().unwrap_or("01"),
+            "CANO": config.my_acct_future.as_deref().unwrap_or(""), 
+            "ACNT_PRDT_CD": config.my_prod_future.as_deref().unwrap_or("01"),
             "KRX_FWDG_ORD_ORGNO": org_no,
             "ORGN_ODNO": order_no,
             "ORD_DVSN": "00", 
@@ -585,8 +594,8 @@ impl Adapter for HantooNightAdapter {
         
         let url = format!("{}{}", config.prod, URL_BALANCE);
         
-        let cano = config.my_acct.as_deref().unwrap_or("");
-        let prdt = config.my_prod.as_deref().unwrap_or("01");
+        let cano = config.my_acct_future.as_deref().unwrap_or("");
+        let prdt = config.my_prod_future.as_deref().unwrap_or("01");
 
         let params = [
             ("CANO", cano),

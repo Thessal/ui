@@ -33,6 +33,7 @@ fn main() -> Result<()> {
 
     let (tx, rx) = mpsc::channel();
     adapter.set_monitor(tx);
+    adapter.set_debug_mode(true);
     engine.start_gateway_listener(rx).unwrap();
 
     adapter.connect()?;
@@ -47,6 +48,10 @@ fn main() -> Result<()> {
     let first = &list[0];
     let symbol = first["futs_shrn_iscd"].as_str().unwrap_or("A05602").to_string(); // 'pdno' is symbol
     println!("Selected Symbol: {}", symbol);
+
+    // Initial check of account (Optional, but user asked to print in this file)
+    let acct = engine.get_account();
+    println!("Initial Account Balance from Engine: {}", acct.balance);
 
     adapter.subscribe(&symbol)?;
 
