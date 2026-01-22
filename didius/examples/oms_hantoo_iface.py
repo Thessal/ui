@@ -28,7 +28,7 @@ def main():
     # 1. Initialize Adapter & Engine
     try:
         adapter = didius.HantooAdapter(config_path)
-        adapter.set_debug_mode(True) # Enable Debug per user request
+        adapter.set_debug_mode(False) # Enable Debug per user request
     except Exception as e:
         print(f"Failed to create adapter: {e}")
         return
@@ -185,7 +185,7 @@ def main():
                     price=str(int(price)) 
                  )
                  try:
-                     oid = oms.send_order(order)
+                     oid = oms.place_order(order)
                      print(f"Order Sent: {oid}")
                  except Exception as e:
                      print(f"Order Failed: {e}")
