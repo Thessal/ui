@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use rust_decimal::Decimal;
-use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
@@ -125,8 +123,8 @@ impl OrderBook {
     
     pub fn validate(&self) -> bool {
         // Check crossed book
-        let bb = self.get_best_bid();
-        let ba = self.get_best_ask();
+        let _bb = self.get_best_bid();
+        let _ba = self.get_best_ask();
         // if let (Some((b, _)), Some((a, _))) = (bb, ba) {
         //     if b > a { // Aggregated book allows b > a condition. Need to study. Is it arbitrage?
         //         eprintln!("Crossed book for {} b{} a{}", self.symbol, b, a);

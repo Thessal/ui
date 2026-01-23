@@ -13,7 +13,11 @@ pub trait Strategy {
     // Check if the strategy should trigger based on market data (OrderBook updates, Trade updates, etc.)
     fn on_order_book_update(&mut self, book: &OrderBook) -> Result<StrategyAction>;
     fn on_trade_update(&mut self, price: f64) -> Result<StrategyAction>;
-    fn on_order_status_update(&mut self, order_id: &str, state: crate::oms::order::OrderState) -> Result<StrategyAction> {
+    fn on_order_status_update(&mut self, order: &Order) -> Result<StrategyAction> {
+        Ok(StrategyAction::None)
+    }
+    
+    fn on_timer(&mut self) -> Result<StrategyAction> {
         Ok(StrategyAction::None)
     }
 }

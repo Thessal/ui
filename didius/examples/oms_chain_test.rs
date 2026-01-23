@@ -38,8 +38,6 @@ fn main() -> Result<()> {
     adapter.set_monitor(tx);
     adapter.set_debug_mode(true);
     engine.start_gateway_listener(rx).unwrap();
-
-    adapter.connect()?;
     
     // User Input: Symbol
     let mut symbol = String::new();
@@ -62,6 +60,7 @@ fn main() -> Result<()> {
     println!("Using Symbol: {}, Tick Size: {}", symbol, tick_size);
 
     adapter.subscribe_market(&[symbol.clone()])?;
+    adapter.connect()?;
 
     println!("Started. Spawning status printer...");
 
@@ -139,96 +138,74 @@ fn main() -> Result<()> {
                     continue;
                 }
 
-                // Chain Timeout: 30s
-                let timeout_timestamp = Local::now().timestamp_millis() as f64 / 1000.0 + 30.0;
+                // Chain Timeout: 5s
+                let timeout_timestamp = Local::now().timestamp_millis() as f64 / 1000.0 + 5.0;
                 println!("Timeout set to: {}", timeout_timestamp);
 
                 if cmd == "b" {
-                    // "buy at current bp-1tick" -> Original Order
-                    let buy_price = best_bid - tick_size;
-                    // "chained with current ap+5tick ... trigger @ Ask"
-                    // If price goes up to Ask, we cancel our low bid and buy high.
-                    let trigger_price = best_ask; 
-                    let chain_price = best_ask + (tick_size * Decimal::from(5));
+                    println!("Sending Chain Buy Order...");
+                    
+                    let mut params = HashMap::new();
+                    // Trigger Logic: Time or Price
+                    params.insert("trigger_timestamp".to_string(), timeout_timestamp.to_string());
+                    // Trigger if Best Ask <= price? (unlikely for buy). 
+                    // StopStrategy BUY: Trigger if Bid >= trigger_price. 
+                    // Let's use Time Trigger mainly.
+                    
+                    // Trigger Price for testing (e.g. if Price drops below X? Stop Loss?)
+                    // Stop Buy (Buy Stop): Trigger if Price >= Trigger. Then Buy.
+                    // Here we are placing a Limit Buy (Passive) and want to switch to Aggressive if not filled.
+                    // This is "Chain". refactored to generic Stop.
+                    // trigger_price can be unused if timestamp is set.
+                    
+                    let aggressive_price = best_ask + (tick_size * Decimal::from(5));
+                    params.insert("chained_price".to_string(), aggressive_price.to_string());
+                    params.insert("trigger_side".to_string(), "BUY".to_string());
+                    params.insert("trigger_price".to_string(), best_ask.to_string());
 
-                    println!(
-                        "Placing Chain Order: Buy @ {}, Trigger @ {}, Chain Buy @ {}",
-                        buy_price, trigger_price, chain_price
-                    );
-
-                    let mut order = Order::new(
+                    let order = Order::new(
                         symbol.clone(),
                         OrderSide::BUY,
                         OrderType::LIMIT,
-                        1,
-                        Some(buy_price.to_string()),
-                        Some(ExecutionStrategy::CHAIN),
-                        None, // client_oid auto gen
-                        None,
+                        1, 
+                        Some((best_bid - tick_size).to_string()), // Passive
+                        Some(ExecutionStrategy::STOP),
+                        Some(params),
+                        None
                     );
-
-                    let mut params = HashMap::new();
-                    // Trigger: If Price >= Trigger (Ask)
-                    params.insert("trigger_price".to_string(), trigger_price.to_string());
-                    params.insert("trigger_side".to_string(), "BUY".to_string());
-                    params.insert("trigger_timestamp".to_string(), timeout_timestamp.to_string());
-
-                    params.insert("chained_symbol".to_string(), symbol.clone());
-                    params.insert("chained_side".to_string(), "BUY".to_string());
-                    params.insert("chained_quantity".to_string(), "1".to_string());
-                    params.insert("chained_price".to_string(), chain_price.to_string());
-
-                    order.strategy_params = params;
-
-                    if let Ok(oid) = engine.send_order_internal(order) {
-                        println!("Order Sent: {}", oid);
-                    } else {
-                        println!("Failed to send order");
+                    
+                    match engine.send_order_internal(order) {
+                        Ok(id) => println!("Order Sent: {}", id),
+                        Err(e) => println!("Error sending order: {}", e),
                     }
-                } else {
-                    // "s"
-                    // "sell at current ap+1tick" -> Original Order
-                    let sell_price = best_ask + tick_size;
-                    // "chained with current bp-5tick ... trigger @ Bid"
-                    // If price drops to Bid, we cancel our high ask and sell low.
-                    let trigger_price = best_bid;
-                    let chain_price = best_bid - (tick_size * Decimal::from(5));
-
-                    println!(
-                        "Placing Chain Order: Sell @ {}, Trigger @ {}, Chain Sell @ {}",
-                        sell_price, trigger_price, chain_price
-                    );
-
-                    let mut order = Order::new(
+                } else if cmd == "s" {
+                     println!("Sending Chain Sell Order...");
+                    
+                    let mut params = HashMap::new();
+                    params.insert("trigger_timestamp".to_string(), timeout_timestamp.to_string());
+                    
+                    let aggressive_price = best_bid - (tick_size * Decimal::from(5));
+                    params.insert("chained_price".to_string(), aggressive_price.to_string());
+                    params.insert("trigger_side".to_string(), "SELL".to_string());
+                    params.insert("trigger_price".to_string(), best_bid.to_string());
+                    
+                    let order = Order::new(
                         symbol.clone(),
                         OrderSide::SELL,
                         OrderType::LIMIT,
-                        1,
-                        Some(sell_price.to_string()),
-                        Some(ExecutionStrategy::CHAIN),
-                        None,
-                        None,
+                        1, 
+                        Some((best_ask + tick_size).to_string()), 
+                        Some(ExecutionStrategy::STOP),
+                        Some(params),
+                        None
                     );
-
-                    let mut params = HashMap::new();
-                    // Trigger: If Price <= Trigger (Bid)
-                    params.insert("trigger_price".to_string(), trigger_price.to_string());
-                    params.insert("trigger_side".to_string(), "SELL".to_string()); // SELL Side trigger checks <=
-                    params.insert("trigger_timestamp".to_string(), timeout_timestamp.to_string());
-
-                    params.insert("chained_symbol".to_string(), symbol.clone());
-                    params.insert("chained_side".to_string(), "SELL".to_string());
-                    params.insert("chained_quantity".to_string(), "1".to_string());
-                    params.insert("chained_price".to_string(), chain_price.to_string());
-
-                    order.strategy_params = params;
-
-                    if let Ok(oid) = engine.send_order_internal(order) {
-                        println!("Order Sent: {}", oid);
-                    } else {
-                        println!("Failed to send order");
+                     match engine.send_order_internal(order) {
+                        Ok(id) => println!("Order Sent: {}", id),
+                        Err(e) => println!("Error sending order: {}", e),
                     }
                 }
+
+
             }
             "q" => break,
             _ => {}

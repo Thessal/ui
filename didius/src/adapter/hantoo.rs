@@ -21,7 +21,7 @@ use url::Url;
 use crate::adapter::{IncomingMessage, Trade};
 use rust_decimal::Decimal;
 use std::str::FromStr;
-use crate::oms::order_book::{OrderBookSnapshot, PriceLevel};
+use crate::oms::order_book::{OrderBookSnapshot};
 
 use aes::Aes256;
 use cbc::Decryptor;
@@ -134,9 +134,9 @@ impl HantooAdapter {
         Ok(())
     }
     
-    pub fn add_subscription(&self, symbol: String) {
-        // Placeholder driven by start_ws_thread using subscribed_symbols
-    }
+    // pub fn add_subscription(&self, _symbol: String) {
+    //     // Placeholder driven by start_ws_thread using subscribed_symbols
+    // }
     
     pub(crate) fn get_token(&self) -> Result<String> {
         {
@@ -313,7 +313,7 @@ impl HantooAdapter {
                             "header": {"approval_key": approval_key, "custtype": "P", "tr_type": "1", "content-type": "utf-8"},
                             "body": {"input": {"tr_id": tr_id, "tr_key": my_htsid}}
                          });
-                         let _ = socket.write_message(Message::Text(sub_body.to_string()));
+                         let _ = socket.send(Message::Text(sub_body.to_string()));
                     }
                     
                     // Subscribe to Market Data for all symbols
@@ -324,7 +324,7 @@ impl HantooAdapter {
                                 "header": {"approval_key": approval_key, "custtype": "P", "tr_type": "1", "content-type": "utf-8"},
                                 "body": {"input": {"tr_id": "H0SCCNT0", "tr_key": target_symbol}} // H0SCCNT0 is "Realtime Stock Conclusion" (KOSPI)
                             }); 
-                            let _ = socket.write_message(Message::Text(sub_body.to_string()));
+                            let _ = socket.send(Message::Text(sub_body.to_string()));
                         }
                         
                         // Asking Price (Total - 10 levels) H0UNASP0
@@ -333,7 +333,7 @@ impl HantooAdapter {
                                 "header": {"approval_key": approval_key, "custtype": "P", "tr_type": "1", "content-type": "utf-8"},
                                 "body": {"input": {"tr_id": "H0UNASP0", "tr_key": target_symbol}} 
                             });
-                            let _ = socket.write_message(Message::Text(sub_body.to_string()));
+                            let _ = socket.send(Message::Text(sub_body.to_string()));
                         }
                         
                         info!("Subscribed to {} Trade/Ask(Total)", target_symbol);
@@ -341,7 +341,7 @@ impl HantooAdapter {
 
                     // Loop
                     loop {
-                        match socket.read_message() {
+                        match socket.read() {
                             Ok(msg) => {
                                 match msg {
                                     Message::Text(text) => {
@@ -349,7 +349,7 @@ impl HantooAdapter {
                                             println!("[{}] WS_RECV: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), text);
                                         }
                                         if text.contains("PINGPONG") {
-                                            let _ = socket.write_message(Message::Text(text)); 
+                                            let _ = socket.send(Message::Text(text)); 
                                             continue;
                                         }
                                         
@@ -412,7 +412,7 @@ impl HantooAdapter {
         let data_part = parts[3..].join("|"); 
         
         // Decryption Logic for H0STCNI0/9
-        let final_data = if (tr_id == "H0STCNI0" || tr_id == "H0STCNI9") {
+        let final_data = if tr_id == "H0STCNI0" || tr_id == "H0STCNI9" {
              // Check if it looks encrypted (Base64 is alphanumeric + +/=)
              // And if we have keys
              if let (Some(iv), Some(key)) = (iv_opt, key_opt) {

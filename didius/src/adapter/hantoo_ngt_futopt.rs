@@ -3,8 +3,8 @@ use crate::oms::account::{AccountState, Position};
 use crate::oms::order::{Order, OrderSide, OrderType, OrderState};
 use crate::oms::order_book::OrderBook;
 use anyhow::{anyhow, Result};
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
+use log::{error, info};
+// use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -15,7 +15,7 @@ use std::thread;
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::adapter::{IncomingMessage, Trade};
-use crate::oms::order_book::{OrderBookDelta, PriceLevel};
+// use crate::oms::order_book::{OrderBookDelta, PriceLevel};
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use chrono::Local;
@@ -120,7 +120,7 @@ impl HantooNightAdapter {
                         "body": {"input": {"tr_id": tr_id, "tr_key": symbol}} 
                     });
                     
-                    if let Err(e) = socket.write_message(Message::Text(sub_body.to_string())) {
+                    if let Err(e) = socket.send(Message::Text(sub_body.to_string())) {
                         error!("Failed to subscribe to trade: {}", e);
                         return;
                     }
@@ -133,7 +133,7 @@ impl HantooNightAdapter {
                         "body": {"input": {"tr_id": tr_id_ask, "tr_key": symbol}} 
                     });
                     
-                    if let Err(e) = socket.write_message(Message::Text(sub_body_ask.to_string())) {
+                    if let Err(e) = socket.send(Message::Text(sub_body_ask.to_string())) {
                         error!("Failed to subscribe to ask: {}", e);
                         // Continue even if ask fails
                     } else {
@@ -148,7 +148,7 @@ impl HantooNightAdapter {
                             "header": {"approval_key": approval_key, "custtype": "P", "tr_type": "1", "content-type": "utf-8"},
                             "body": {"input": {"tr_id": tr_id_notice, "tr_key": my_htsid}}
                          });
-                         if let Err(e) = socket.write_message(Message::Text(sub_body_notice.to_string())) {
+                         if let Err(e) = socket.send(Message::Text(sub_body_notice.to_string())) {
                              error!("Failed to subscribe to notice: {}", e);
                          } else {
                              info!("Subscribed to Night Future Notice (H0MFCNI0) for {}", my_htsid);
@@ -156,7 +156,7 @@ impl HantooNightAdapter {
                     }
 
                     loop {
-                        match socket.read_message() {
+                        match socket.read() {
                             Ok(msg) => {
                                 match msg {
                                     Message::Text(text) => {
@@ -164,7 +164,7 @@ impl HantooNightAdapter {
                                             println!("[{}] WS_RECV: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), text);
                                         }
                                         if text.contains("PINGPONG") {
-                                            let _ = socket.write_message(Message::Text(text)); 
+                                            let _ = socket.send(Message::Text(text)); 
                                             continue;
                                         }
                                         

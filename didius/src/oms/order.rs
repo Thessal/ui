@@ -1,8 +1,7 @@
 use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Local};
-use uuid::Uuid;
+use chrono::Local;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -41,13 +40,9 @@ pub enum OrderState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum ExecutionStrategy {
-    IOC,
-    FOK,
-    VWAP,
-    TWAP,
-    STOP_LOSS,
-    TAKE_PROFIT,
-    CHAIN,
+    MARKET,
+    LIMIT,
+    STOP,
     NONE,
 }
 

@@ -52,7 +52,7 @@ impl Interface {
         };
         
         Ok(Interface {
-            engine: Arc::new(OMSEngine::new(adapter_arc, 1.0, logger)),
+            engine: Arc::new(OMSEngine::new(adapter_arc, logger)),
         })
     }
 

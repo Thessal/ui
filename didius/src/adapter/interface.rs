@@ -98,14 +98,14 @@ fn json_to_py(py: Python, value: &Value) -> PyResult<PyObject> {
         },
         Value::String(s) => Ok(s.into_py(py)),
         Value::Array(arr) => {
-            let list = PyList::empty_bound(py);
+            let list = PyList::empty(py);
             for v in arr {
                 list.append(json_to_py(py, v)?)?;
             }
             Ok(list.into())
         },
         Value::Object(obj) => {
-            let dict = PyDict::new_bound(py);
+            let dict = PyDict::new(py);
             for (k, v) in obj {
                 dict.set_item(k, json_to_py(py, v)?)?;
             }
