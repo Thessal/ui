@@ -97,6 +97,15 @@ class S3Wrapper:
 
                 yield key
 
+    def _parse_postprocess(self, x):
+        """
+        Parse string values in json data
+        (converts str to int)
+        """
+        for symbol, entries in x["data"].items():
+            x["data"][symbol] = [int(y) for y in entries]
+        return x
+
     def download_and_parse(self, key: str) -> Iterator[Dict[str, Any]]:
         """
         Download a specific object, decompress it (if zstd), and parse JSON/JSONL.
@@ -113,13 +122,13 @@ class S3Wrapper:
                     for line in text_stream:
                         if line.strip():
                             try:
-                                yield json.loads(line)
+                                yield self._parse_postprocess(json.loads(line))
                             except json.JSONDecodeError as e:
                                 print(
                                     f"Error decoding JSON in file {key}: {e}")
-            elif key.endswith('.json'):
-                content = body.read().decode('utf-8')
-                yield json.loads(content)
+            else:
+                print(f"Skipping {key}")
+                pass 
 
         except Exception as e:
             print(f"Error processing file {key}: {e}")
@@ -341,21 +350,12 @@ class S3KlineWrapper(S3Wrapper):
                         fname = os.path.basename(key)
                         base = fname.replace('.jsonl.zstd', '')
                         parts = base.split('_')
-                        # Old format: Start_End_Retrieval (3 parts)
-                        # New format: Start_End_Exchange_Retrieval (4 parts)
+                        # format: Start_End_Exchange_Retrieval (4 parts)
 
-                        if len(parts) >= 4:
-                            f_start_str = parts[0]
-                            f_end_str = parts[1]
-                            # f_exchange = parts[2]
-                            f_retrieval_str = parts[3]
-                        elif len(parts) == 3:
-                            # Backward compatibility
-                            f_start_str = parts[0]
-                            f_end_str = parts[1]
-                            f_retrieval_str = parts[2]
-                        else:
-                            continue
+                        f_start_str = parts[0]
+                        f_end_str = parts[1]
+                        f_exchange = parts[2]
+                        f_retrieval_str = parts[3]
 
                         f_start = datetime.strptime(
                             f_start_str, "%Y%m%d%H%M%S")

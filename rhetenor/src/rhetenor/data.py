@@ -156,7 +156,24 @@ def download_master(market: str = "kospi", date_str: Optional[str] = None,
         print(f"Failed to download or parse {market} master file: {e}")
         raise
 
-
+FIELD_INTERNAL = ["open", "high", "low", "close", "volume", "acc_krw_vol"]
+FIELD_MAPPING = ['stck_oprc','stck_hgpr','stck_lwpr','stck_prpr','cntg_vol','acml_tr_pbmn' ]
+                # 'prdy_vrss': '전일 대비',
+                # 'prdy_vrss_sign': '전일 대비 부호',
+                # 'prdy_ctrt': '전일 대비율',
+                # 'stck_prdy_clpr': '전일대비 종가',
+                # 'acml_vol': '누적 거래량',
+                # 'acml_tr_pbmn': '누적 거래대금',
+                # 'hts_kor_isnm': '한글 종목명',
+                # 'stck_prpr': '주식 현재가',
+                # 'stck_bsop_date': '주식 영업일자',
+                # 'stck_cntg_hour': '주식 체결시간',
+                # 'stck_prpr': '주식 현재가',
+                # 'stck_oprc': '주식 시가',
+                # 'stck_hgpr': '주식 최고가',
+                # 'stck_lwpr': '주식 최저가',
+                # 'cntg_vol': '체결 거래량',
+                # 'acml_tr_pbmn': '누적 거래대금'
 class HantooClient:
     """
     Client for interacting with Korea Investment Securities (Hantoo) API.
@@ -575,13 +592,6 @@ class HantooKlineLogger:
         Fetch snapshot for all symbols and aggregate.
         """
         timestamp_snapshot = datetime.now()
-        # Use req_time = current time (HHMMSS)
-        # Check requested logic for duplicate handling if holiday:
-        # "If today is holiday, use target_date + current_time. duplicate ok."
-
-        # target_date is already set to last business day.
-        # If today is holiday, target_date < today.
-
         req_time = timestamp_snapshot.strftime("%H%M%S")
         date_str = self.target_date.strftime("%Y%m%d")
 
@@ -607,7 +617,7 @@ class HantooKlineLogger:
                 return sym, []
 
         print(f"Fetching data for {len(self.symbols)} symbols...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             # Pass self.exchange_code
             future_to_sym = {executor.submit(
                 fetch, sym, self.exchange_code): sym for sym in self.symbols}
@@ -630,29 +640,20 @@ class HantooKlineLogger:
                 # Construct timestamp YYYY-MM-DD_HH:MM
                 # Hantoo time is HHMMSS.
                 # Minute resolution
-                t_str = f"{self.target_date.strftime('%Y-%m-%d')}_{r_time[:4]}"
+                t_str = f"{self.target_date.strftime('%Y%m%d')}{r_time[:4]}"
 
                 if t_str not in time_aggregated:
                     time_aggregated[t_str] = {
                         "timestamp": t_str,
-                        "fields": ["open", "high", "low", "close", "volume", "acc_vol"],
+                        "fields": FIELD_INTERNAL,
                         "data": {}
                     }
-
                 # Fields mapping
-                # stck_oprc, stck_hgpr, stck_lwpr, stck_prpr, cntg_vol, acml_vol
                 try:
-                    vals = [
-                        int(row.get('stck_oprc')),
-                        int(row.get('stck_hgpr')),
-                        int(row.get('stck_lwpr')),
-                        int(row.get('stck_prpr')),
-                        int(row.get('cntg_vol')),  # Minute volume
-                        int(row.get('acml_vol'))  # Accumulated volume
-                    ]
+                    vals = [ str(row.get(x)) for x in FIELD_MAPPING ] 
                     time_aggregated[t_str]["data"][sym] = vals
                 except:
-                    pass
+                    print("[data.py] fetch_and_update : Error downloading minute data")
 
         # Compare and Update using loaded wrapper state
         updates = self.wrapper.reconcile(
