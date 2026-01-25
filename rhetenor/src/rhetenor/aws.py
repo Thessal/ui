@@ -146,7 +146,7 @@ class S3MasterWrapper(S3Wrapper):
     AWS S3 Wrapper for storing and retrieving Hantoo master data.
     """
 
-    def __init__(self, bucket: str, prefix: str = "hantoo_master",
+    def __init__(self, bucket: str = "rhetenor", prefix: str = "hantoo_master",
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         super().__init__(bucket, prefix, auth_config_path, region)
 
