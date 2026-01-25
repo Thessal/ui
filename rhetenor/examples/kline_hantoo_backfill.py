@@ -83,7 +83,7 @@ def main():
         return
 
     s3_wrapper = S3KlineWrapper(
-        bucket="rhetenor", prefix="hantoo_stk_kline_1m", auth_config_path=AWS_CONFIG, exchange_code=EXCHG_CODE)
+        exchange_code=EXCHG_CODE, bucket="rhetenor", prefix="hantoo_stk_kline_1m", auth_config_path=AWS_CONFIG)
 
     # 3. Find Last 5 Non-Holiday Days
     print("Identifying last 5 non-holiday days...")

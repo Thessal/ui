@@ -530,7 +530,7 @@ class HantooKlineLogger:
         )
 
         # Initialize AWS Kline Wrapper
-        self.wrapper = S3KlineWrapper(bucket, prefix, aws_config_path)
+        self.wrapper = S3KlineWrapper(exchange_code, bucket, prefix, aws_config_path)
 
         self.universe = {}
 
@@ -605,7 +605,7 @@ class HantooKlineLogger:
 
             try:
                 headers, res = self.hantoo_client.inquire_time_itemchartprice(
-                    market_code=self.exchange_code,
+                    exchange_code=self.exchange_code,
                     symbol=sym,
                     time_hhmmss=req_time,
                     include_past="N"
@@ -652,15 +652,13 @@ class HantooKlineLogger:
                         "[data.py] fetch_and_update : Error downloading minute data")
 
         # Compare and Update using loaded wrapper state
-        updates = self.wrapper.reconcile(
-            time_aggregated, exchange_code=self.exchange_code)
+        updates = self.wrapper.reconcile(time_aggregated)
 
         if updates:
             self.updates.extend(updates)
             if len(self.updates) >= 15:
                 print(f"Uploading {len(self.updates)} records to S3...")
-                self.wrapper.put(
-                    self.updates)
+                self.wrapper.put(self.updates)
                 self.updates = []
         else:
             print("No updates needed.")
