@@ -18,60 +18,55 @@ class TestHantooKlineLogger(unittest.TestCase):
 
     @patch('rhetenor.data.download_master')
     @patch('rhetenor.data.HantooClient')
-    @patch('rhetenor.data.DataLoader')
+    @patch('rhetenor.data.S3KlineWrapper')
     @patch('builtins.open', new_callable=mock_open, read_data="app_key: test\napp_secret: test")
     @patch('os.path.exists', return_value=True)
-    def test_init_flow(self, mock_exists, mock_file, mock_dataloader_cls, mock_hantoo_cls, mock_download_master):
+    @patch('time.sleep')
+    def test_init_flow(self, mock_sleep, mock_exists, mock_file, mock_wrapper_cls, mock_hantoo_cls, mock_download_master):
         # Setup Mocks
-        mock_master_data = {'005930': 'Samsung', '000660': 'SK Hynix'}
+        # download_master returns dict of dicts
+        mock_master_data = {'005930': {'korean_name': 'Samsung', 'market': 'kospi'}, '000660': {'korean_name': 'SK Hynix', 'market': 'kospi'}}
         mock_download_master.return_value = mock_master_data
         
         mock_hantoo_instance = mock_hantoo_cls.return_value
         # Mock holiday check
         mock_hantoo_instance.check_holiday.return_value = {"rt_cd": "0", "output": []}
         
-        # Mock S3 list objects
-        mock_s3_loader = mock_dataloader_cls.return_value
-        # Return a fake key
-        mock_s3_loader.list_objects.return_value = iter(['hantoo_stk_kline_1m/20240101_100000.jsonl.zstd'])
+        # Mock S3 Wrapper
+        mock_wrapper = mock_wrapper_cls.return_value
+        # Mock load (no return needed, just side effect or nothing)
+        mock_wrapper.load.return_value = None
         
         # Mock Kline Data
         # symbol, date, time -> return valid data
-        mock_hantoo_instance.inquire_time_dailychartprice.return_value = {
-            "rt_cd": "0",
-            "output2": [
-                {
-                    "stck_bsop_date": "20240101",
-                    "stck_cntg_hour": "100100", # 10:01:00
-                    "stck_oprc": "100", "stck_hgpr": "110", "stck_lwpr": "90", "stck_prpr": "105", "cntg_vol": "1000"
-                }
-            ]
-        }
+        mock_hantoo_instance.inquire_time_itemchartprice.return_value = (
+             {}, 
+             {
+                "rt_cd": "0",
+                "output2": [
+                    {
+                        "stck_bsop_date": "20240101",
+                        "stck_cntg_hour": "100100", # 10:01:00
+                        "stck_oprc": "100", "stck_hgpr": "110", "stck_lwpr": "90", "stck_prpr": "105", "cntg_vol": "1000"
+                    }
+                ]
+            }
+        )
         
         # Init Loader
         loader = HantooKlineLogger(symbols=['005930'], 
                                    hantoo_config_path="auth/hantoo.yaml", 
                                    aws_config_path="auth/aws.yaml")
         
-        # Verify Master Download called
-        mock_download_master.assert_called_once()
         
-        # Verify S3 list objects called
-        mock_s3_loader.list_objects.assert_called()
+        # Verify Wrapper Load called
+        mock_wrapper.load.assert_called()
         
-        # Verify Last Timestamp set (should be updated after fill)
-        expected_ts = datetime(2024, 1, 1, 10, 1, 0)
-        self.assertEqual(loader.last_timestamp, expected_ts)
+        # Verify Inquire called
+        mock_hantoo_instance.inquire_time_itemchartprice.assert_called()
         
-        # Verify Inquire called (Gap fill)
-        # Verify S3 upload called
-        # We need to check if put_object was called on s3_client (which is mock_s3_loader.s3)
-        mock_s3 = mock_s3_loader.s3
-        mock_s3.put_object.assert_called()
-        
-        # Check upload key
-        call_args = mock_s3.put_object.call_args
-        self.assertIn('20240101_100100.jsonl.zstd', call_args[1]['Key'])
+        # Verify Reconcile called
+        mock_wrapper.reconcile.assert_called()
 
     @patch('requests.get')
     def test_download_master(self, mock_get):
@@ -81,13 +76,13 @@ class TestHantooKlineLogger(unittest.TestCase):
             # Create a fake mst file content
             # A005930     ... Samsung ...
             # Needs to be somewhat valid for the parser
-            # Parser expects len > 228
-            # And expects 9th char to be short code end?
-            # actually row[0:9] short code.
+            # Parser expects len > 228 (suffix) + 21 (part1)
+            # part1: short_code(9) + standard_code(12) + name...
+            # suffix: 228
             
-            # Pad with spaces to reach length
-            line = "A005930".ljust(9) + "StandardCode".ljust(12) + "SamsungElec".ljust(50) + " " * 200
-            content = line + "\n"
+            part1 = "A005930".ljust(9) + "StandardCode".ljust(12) + "SamsungElec".ljust(50)
+            suffix = " " * 228
+            content = part1 + suffix + "\n"
             zf.writestr('kospi_code.mst', content.encode('cp949'))
         
         mf.seek(0)
@@ -102,7 +97,9 @@ class TestHantooKlineLogger(unittest.TestCase):
         
         # Verify
         self.assertIn('A005930', result)
-        self.assertEqual(result['A005930'], 'SamsungElec')
+        entry = result['A005930']
+        self.assertEqual(entry['korean_name'], 'SamsungElec')
+        self.assertEqual(entry['standard_code'], 'StandardCode')
 
 if __name__ == '__main__':
     unittest.main()

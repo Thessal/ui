@@ -15,7 +15,8 @@ class TestHantooKlineLoggerReconcile(unittest.TestCase):
     @patch('rhetenor.data.S3KlineWrapper')
     @patch('rhetenor.data.HantooClient')
     @patch('rhetenor.data.datetime') # To mock now()
-    def test_reconcile_logic(self, mock_dt, mock_hantoo_cls, mock_wrapper_cls):
+    @patch('time.sleep')
+    def test_reconcile_logic(self, mock_sleep, mock_dt, mock_hantoo_cls, mock_wrapper_cls):
         # Setup Mocks
         mock_wrapper = MagicMock()
         mock_wrapper_cls.return_value = mock_wrapper
@@ -91,9 +92,9 @@ class TestHantooKlineLoggerReconcile(unittest.TestCase):
         
         updated_data = logger.updates[0]
         # Check Symbol A (005930) - Updated Close
-        self.assertEqual(updated_data['data']['005930'][3], 70050)
+        self.assertEqual(updated_data['data']['005930'][3], "70050")
         # Check Symbol B - New
-        self.assertEqual(updated_data['data']['000660'][0], 140000)
+        self.assertEqual(updated_data['data']['000660'][0], "140000")
 
 if __name__ == '__main__':
     unittest.main()

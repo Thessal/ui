@@ -583,7 +583,6 @@ class HantooKlineLogger:
         self.wrapper.load(start_dt, end_dt)
 
         # Fetch current data asynchronously
-        import asyncio
 
         self.fetch_and_update()
 
@@ -598,33 +597,30 @@ class HantooKlineLogger:
         # We will fetch for all symbols.
         results = {}  # Sym -> Data
 
-        import concurrent.futures
+        print(f"Fetching data for {len(self.symbols)} symbols...")
+        
+        total_syms = len(self.symbols)
+        for idx, sym in enumerate(self.symbols):
+            start_t = time.time()
+            # print(f"[{idx+1}/{total_syms}] Fetching {sym}...", end='\r')
 
-        def fetch(sym, exchange_code):
-            # FID_PW_DATA_INCU_YN='N' means we only get the block relevant to time?
-            # User sample code in test_kline_today uses 'N'.
-            # It returns `output2` list.
             try:
                 headers, res = self.hantoo_client.inquire_time_itemchartprice(
-                    market_code=exchange_code,
+                    market_code=self.exchange_code,
                     symbol=sym,
                     time_hhmmss=req_time,
                     include_past="N"
                 )
-                return sym, res.get('output2', [])
-            except Exception as e:
-                print(f"Error fetching {sym}: {e}")
-                return sym, []
-
-        print(f"Fetching data for {len(self.symbols)} symbols...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            # Pass self.exchange_code
-            future_to_sym = {executor.submit(
-                fetch, sym, self.exchange_code): sym for sym in self.symbols}
-            for future in concurrent.futures.as_completed(future_to_sym):
-                sym, rows = future.result()
+                rows = res.get('output2', [])
                 if rows:
                     results[sym] = rows
+            except Exception as e:
+                print(f"Error fetching {sym}: {e}")
+
+            # Rate Limit: 2 req/s -> 0.5s per request
+            elapsed = time.time() - start_t
+            if elapsed < 0.5:
+                time.sleep(0.5 - elapsed)
 
         # Aggregate
         # We have lists of bars for each symbol.

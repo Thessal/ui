@@ -20,13 +20,20 @@ class TestS3KlineWrapperMocks(unittest.TestCase):
         self.mock_s3 = MagicMock()
         self.wrapper = S3KlineWrapper("test-bucket", "test-prefix")
         self.wrapper.s3 = self.mock_s3
-        self.wrapper.loader.s3 = self.mock_s3
 
     def test_put_splitting(self):
         # Data spanning 2 days
         data = [
-            {"timestamp": "2024-01-01_23:00", "open": 100},
-            {"timestamp": "2024-01-02_01:00", "open": 105}
+            {
+                "timestamp": "20240101230000", 
+                "fields": ["open"], 
+                "data": {"005930": ["100"]}
+            },
+            {
+                "timestamp": "20240102010000", 
+                "fields": ["open"], 
+                "data": {"005930": ["105"]}
+            }
         ]
         
         self.wrapper.put(data)
@@ -80,8 +87,9 @@ class TestS3KlineWrapperMocks(unittest.TestCase):
         retrieval_t1 = "20240105120000"
         retrieval_t2 = "20240105130000" # Newer
         
-        key1 = f"test-prefix/20240101100000_20240101100100_{retrieval_t1}.jsonl.zstd"
-        key2 = f"test-prefix/20240101100100_20240101100200_{retrieval_t2}.jsonl.zstd"
+        # Format: Start_End_Exchange_Retrieval
+        key1 = f"test-prefix/20240101100000_20240101100100_J_{retrieval_t1}.jsonl.zstd"
+        key2 = f"test-prefix/20240101100100_20240101100200_J_{retrieval_t2}.jsonl.zstd"
         
         self.mock_s3.get_paginator.return_value.paginate.return_value = [
             {
@@ -97,13 +105,13 @@ class TestS3KlineWrapperMocks(unittest.TestCase):
             data = []
             if Key == key1:
                 data = [
-                    {"timestamp": "2024-01-01_10:00", "ver": 1},
-                    {"timestamp": "2024-01-01_10:01", "ver": 1}
+                    {"timestamp": "20240101100000", "fields": ["v"], "data": {"A": [1]}},
+                    {"timestamp": "20240101100100", "fields": ["v"], "data": {"A": [1]}}
                 ]
             elif Key == key2:
                 data = [
-                    {"timestamp": "2024-01-01_10:01", "ver": 2},
-                    {"timestamp": "2024-01-01_10:02", "ver": 2}
+                    {"timestamp": "20240101100100", "fields": ["v"], "data": {"A": [2]}},
+                    {"timestamp": "20240101100200", "fields": ["v"], "data": {"A": [2]}}
                 ]
             
             # Compress
@@ -126,14 +134,14 @@ class TestS3KlineWrapperMocks(unittest.TestCase):
         result = self.wrapper.get(start, end)
         
         self.assertEqual(len(result), 3)
-        self.assertEqual(result[0]['timestamp'], "2024-01-01_10:00")
-        self.assertEqual(result[0]['ver'], 1)
+        self.assertEqual(result[0]['timestamp'], "20240101100000")
+        self.assertEqual(result[0]['data']['A'], [1])
         
-        self.assertEqual(result[1]['timestamp'], "2024-01-01_10:01")
-        self.assertEqual(result[1]['ver'], 2) # Should be overwritten by newer file
+        self.assertEqual(result[1]['timestamp'], "20240101100100")
+        self.assertEqual(result[1]['data']['A'], [2]) # Reflected v2
         
-        self.assertEqual(result[2]['timestamp'], "2024-01-01_10:02")
-        self.assertEqual(result[2]['ver'], 2)
+        self.assertEqual(result[2]['timestamp'], "20240101100200")
+        self.assertEqual(result[2]['data']['A'], [2])
 
 class TestS3Integration(unittest.TestCase):
     def setUp(self):
@@ -153,16 +161,30 @@ class TestS3Integration(unittest.TestCase):
 
     def test_overwrite_functionality(self):
         today = datetime.now()
-        date_str = today.strftime("%Y-%m-%d")
+        date_str = today.strftime("%Y%m%d")
         
         # Generate random data 1
         # Time: 09:00:00
-        ts_1 = f"{date_str}_09:00"
-        ts_2 = f"{date_str}_09:01"
+        ts_1 = f"{date_str}090000"
+        ts_2 = f"{date_str}090100"
         
         data1 = [
-            {"timestamp": ts_1, "open": random.randint(100, 200), "ver": 1},
-            {"timestamp": ts_2, "open": random.randint(100, 200), "ver": 1}
+            {
+                "timestamp": ts_1, 
+                "fields": ["open"],
+                "data": {
+                    "005930": ["100"],
+                    "000660": ["200"]
+                }
+            },
+            {
+                "timestamp": ts_2, 
+                "fields": ["open"],
+                "data": {
+                    "005930": ["105"],
+                    "000660": ["205"]
+                }
+            }
         ]
         
         print(f"\n[Test] Uploading Batch 1... {data1}")
@@ -174,20 +196,33 @@ class TestS3Integration(unittest.TestCase):
         
         # Generate random data 2 (Overwriting same timestamps)
         data2 = [
-            {"timestamp": ts_1, "open": random.randint(300, 400), "ver": 2},
-            {"timestamp": ts_2, "open": random.randint(300, 400), "ver": 2}
+            {
+                "timestamp": ts_1, 
+                "fields": ["open"],
+                "data": {
+                    "005930": ["999"], # Changed
+                    "000660": ["888"]
+                }
+            },
+            {
+                "timestamp": ts_2, 
+                "fields": ["open"],
+                "data": {
+                    "005930": ["999"], # Changed
+                    "000660": ["888"]
+                }
+            }
         ]
         
         print(f"[Test] Uploading Batch 2 (Overwrite)... {data2}")
         self.wrapper.put(data2)
         
-        # Sleep a bit to ensure S3 eventual consistency (though usually read-after-write is consistent for new objects, 
-        # list might be eventually consistent. But we are relying on list_objects)
+        # Sleep a bit to ensure S3 eventual consistency 
         time.sleep(1)
         
         # Retrieve
-        start_dt = datetime.strptime(ts_1, "%Y-%m-%d_%H:%M")
-        end_dt = datetime.strptime(ts_2, "%Y-%m-%d_%H:%M")
+        start_dt = datetime.strptime(ts_1, "%Y%m%d%H%M%S")
+        end_dt = datetime.strptime(ts_2, "%Y%m%d%H%M%S")
         
         print(f"[Test] Retrieving data from {start_dt} to {end_dt}...")
         results = self.wrapper.get(start_dt, end_dt)
@@ -199,11 +234,12 @@ class TestS3Integration(unittest.TestCase):
         
         # Check if values match data2
         for res in results:
-            self.assertEqual(res['ver'], 2, f"Expected version 2 for {res['timestamp']}, got {res['ver']}")
-            if res['timestamp'] == ts_1:
-                self.assertEqual(res['open'], data2[0]['open'])
-            elif res['timestamp'] == ts_2:
-                self.assertEqual(res['open'], data2[1]['open'])
+            ts = res['timestamp']
+            sym_data = res['data']
+            if ts == ts_1:
+                self.assertEqual(sym_data['005930'], [999])
+            elif ts == ts_2:
+                self.assertEqual(sym_data['005930'], [999])
 
 if __name__ == '__main__':
     unittest.main()

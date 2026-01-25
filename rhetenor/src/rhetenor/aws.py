@@ -150,6 +150,9 @@ class S3MasterWrapper(S3Wrapper):
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         super().__init__(bucket, prefix, auth_config_path, region)
 
+    def _parse_postprocess(self, x):
+        return x
+
     def put(self, data: Dict[str, Any], market: str, date_str: str):
         """
         Upload master data to S3.
