@@ -54,6 +54,7 @@ class MetadataManager():
 def generate_code_metadata(path, agent, related_path, **kwargs):
     raise NotImplementedError
 
+
 def generate_summary_metadata(path, model, prompt_path, **kwargs):
     return {
         "data_type": "summary",
@@ -79,8 +80,8 @@ def generate_document_metadata(path, source, agent, **kwargs):
     }
 
 
-## Prompt template generator, useful when the language spec has been updated.
-## Generate new prompt and overwrite the old prompt
+# Prompt template generator, useful when the language spec has been updated.
+# Generate new prompt and overwrite the old prompt
 # save_prompt_json(build_system_context())
 def build_system_context(self):
     with open("docs/syntax.txt", "rt") as f:

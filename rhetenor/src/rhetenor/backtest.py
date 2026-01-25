@@ -58,7 +58,7 @@ def normalize_position(position_input, x_logret):
 # import signal
 # for fname, g in generated.items():
 #     try:
-#         # signal.alarm(10) # NOTE: causes truble when debugging 
+#         # signal.alarm(10) # NOTE: causes truble when debugging
 #         input_code = g['generation_result']['code']
 #         position_input = compute(runtime, input_code)
 #         position_raw, position = normalize_position(position_input, x_logret)

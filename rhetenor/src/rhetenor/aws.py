@@ -8,12 +8,14 @@ import io
 from datetime import datetime
 from typing import Iterator, Dict, Any, Optional
 
+
 class S3Wrapper:
     """
     AWS S3 Wrapper for storing and retrieving data.
     Base class providing S3 client and common IO methods.
     """
-    def __init__(self, bucket: str, prefix: str, 
+
+    def __init__(self, bucket: str, prefix: str,
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         """
         Initialize the S3Wrapper.
@@ -27,9 +29,9 @@ class S3Wrapper:
         self.bucket = bucket
         self.prefix = prefix
         self.auth_config = self._load_credentials(auth_config_path)
-        
+
         region_name = region or self.auth_config.get('region')
-        
+
         self.s3 = boto3.client(
             's3',
             region_name=region_name,
@@ -41,7 +43,7 @@ class S3Wrapper:
         """Load AWS credentials from a YAML file."""
         if not os.path.exists(path):
             raise FileNotFoundError(f"AWS config file not found at {path}")
-        
+
         with open(path, 'r') as f:
             try:
                 config = yaml.safe_load(f)
@@ -56,12 +58,13 @@ class S3Wrapper:
         Timestamp format: %Y%m%d_%H%M%S
         """
         paginator = self.s3.get_paginator('list_objects_v2')
-        page_iterator = paginator.paginate(Bucket=self.bucket, Prefix=self.prefix)
+        page_iterator = paginator.paginate(
+            Bucket=self.bucket, Prefix=self.prefix)
 
         for page in page_iterator:
             if 'Contents' not in page:
                 continue
-                
+
             for obj in page['Contents']:
                 key = obj['Key']
                 if not key.endswith('.jsonl.zstd') and not key.endswith('.json'):
@@ -78,10 +81,11 @@ class S3Wrapper:
                             date_part = parts[0]
                             # Try long format first
                             try:
-                                file_dt = datetime.strptime(date_part, "%Y%m%d") # minimal matching
+                                file_dt = datetime.strptime(
+                                    date_part, "%Y%m%d")  # minimal matching
                                 # If it has time part, it might be separate or attached?
                                 # This simple check might be enough for prefixes.
-                                
+
                                 if start_date and file_dt < start_date:
                                     continue
                                 if end_date and file_dt > end_date:
@@ -90,7 +94,7 @@ class S3Wrapper:
                                 pass
                     except (ValueError, IndexError):
                         pass
-                
+
                 yield key
 
     def download_and_parse(self, key: str) -> Iterator[Dict[str, Any]]:
@@ -100,7 +104,7 @@ class S3Wrapper:
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             body = response['Body']
-            
+
             # Check extension
             if key.endswith('.jsonl.zstd'):
                 dctx = zstd.ZstdDecompressor()
@@ -111,11 +115,12 @@ class S3Wrapper:
                             try:
                                 yield json.loads(line)
                             except json.JSONDecodeError as e:
-                                print(f"Error decoding JSON in file {key}: {e}")
+                                print(
+                                    f"Error decoding JSON in file {key}: {e}")
             elif key.endswith('.json'):
                 content = body.read().decode('utf-8')
                 yield json.loads(content)
-                            
+
         except Exception as e:
             print(f"Error processing file {key}: {e}")
             raise
@@ -126,11 +131,13 @@ class S3Wrapper:
     def get(self):
         raise NotImplementedError
 
+
 class S3MasterWrapper(S3Wrapper):
     """
     AWS S3 Wrapper for storing and retrieving Hantoo master data.
     """
-    def __init__(self, bucket: str, prefix: str = "hantoo_master", 
+
+    def __init__(self, bucket: str, prefix: str = "hantoo_master",
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         super().__init__(bucket, prefix, auth_config_path, region)
 
@@ -141,9 +148,10 @@ class S3MasterWrapper(S3Wrapper):
         """
         key = f"{self.prefix}/{date_str}_{market}.json"
         print(f"Uploading master data to {key}...")
-        
+
         json_body = json.dumps(data, ensure_ascii=False)
-        self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_body.encode('utf-8'))
+        self.s3.put_object(Bucket=self.bucket, Key=key,
+                           Body=json_body.encode('utf-8'))
 
     def get(self, market: str, date_str: str) -> Optional[Dict[str, Any]]:
         """
@@ -160,11 +168,13 @@ class S3MasterWrapper(S3Wrapper):
             return None
         return None
 
+
 class S3KlineWrapper(S3Wrapper):
     """
     AWS S3 Wrapper for storing and retrieving Hantoo kline data.
     """
-    def __init__(self, bucket: str, prefix: str = "hantoo_stk_kline_1m", 
+
+    def __init__(self, bucket: str, prefix: str = "hantoo_stk_kline_1m",
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         super().__init__(bucket, prefix, auth_config_path, region)
         self.loaded_data_map = {}
@@ -189,19 +199,20 @@ class S3KlineWrapper(S3Wrapper):
         for t_str, new_record in new_data_map.items():
             if t_str in self.loaded_data_map:
                 old_record = self.loaded_data_map[t_str]
-                
+
                 # Check fields
                 if old_record.get('fields') != new_record.get('fields'):
-                     # Field diff -> Treat as new (overwrite/update)
-                     self.loaded_data_map[t_str] = new_record
+                    # Field diff -> Treat as new (overwrite/update)
+                    self.loaded_data_map[t_str] = new_record
                 else:
-                     # Fields same -> Merge data
-                     if old_record.get('data') == new_record.get('data'):
-                         continue
-                     
-                     # Merge
-                     old_record['data'].update(new_record['data'])
-                     self.loaded_data_map[t_str] = old_record # Explicitly set (though ref is same)
+                    # Fields same -> Merge data
+                    if old_record.get('data') == new_record.get('data'):
+                        continue
+
+                    # Merge
+                    old_record['data'].update(new_record['data'])
+                    # Explicitly set (though ref is same)
+                    self.loaded_data_map[t_str] = old_record
             else:
                 self.loaded_data_map[t_str] = new_record
             updates.append(new_record)
@@ -210,7 +221,7 @@ class S3KlineWrapper(S3Wrapper):
     def put(self, data: list[dict], exchange_code: str = "J"):
         """
         Upload kline data to S3, splitting by date.
-        
+
         Args:
             data: List of dictionaries containing kline data. 
                   Must have a 'timestamp' field.
@@ -227,9 +238,10 @@ class S3KlineWrapper(S3Wrapper):
             if isinstance(ts_val, datetime):
                 return ts_val
             try:
-                return datetime.strptime(ts_val, "%Y-%m-%d_%H:%M") # Common format used in examples
+                # Common format used in examples
+                return datetime.strptime(ts_val, "%Y-%m-%d_%H:%M")
             except ValueError:
-                try: 
+                try:
                     return datetime.strptime(ts_val, "%Y%m%d%H%M%S")
                 except ValueError:
                     # Try with ISO or whatever comes
@@ -243,7 +255,7 @@ class S3KlineWrapper(S3Wrapper):
                 date_key = ts.strftime("%Y%m%d")
             else:
                 date_key = "unknown"
-                
+
             if date_key not in data_by_date:
                 data_by_date[date_key] = []
             data_by_date[date_key].append(entry)
@@ -259,68 +271,70 @@ class S3KlineWrapper(S3Wrapper):
         for date_key, entries in data_by_date.items():
             if not entries:
                 continue
-                
+
             sorted_data = sorted(entries, key=get_ts)
             start_entry = sorted_data[0]
             end_entry = sorted_data[-1]
-            
+
             start_ts_obj = get_ts(start_entry)
             end_ts_obj = get_ts(end_entry)
 
             start_str = fmt_ts(start_ts_obj)
             end_str = fmt_ts(end_ts_obj)
-            
+
             # Format: {StartTime}_{EndTime}_{exchange_code}_{RetrievalTime}.jsonl.zstd
             filename = f"{start_str}_{end_str}_{exchange_code}_{retrieval_str}.jsonl.zstd"
             key = f"{self.prefix}/{filename}"
-            
+
             # Prepare content
             lines = []
             for entry in sorted_data:
                 lines.append(json.dumps(entry, default=str))
-            
+
             full_text = '\n'.join(lines) + '\n'
             cctx = zstd.ZstdCompressor()
             compressed_data = cctx.compress(full_text.encode('utf-8'))
-            
+
             # Upload
             print(f"Uploading {key}...")
-            self.s3.put_object(Bucket=self.bucket, Key=key, Body=compressed_data)
+            self.s3.put_object(Bucket=self.bucket, Key=key,
+                               Body=compressed_data)
 
     def get(self, datetime_from: datetime, datetime_to: datetime) -> list[dict]:
         """
         Get kline data from S3 within the specified range.
         Optimized to strictly query date prefixes.
-        
+
         Args:
             datetime_from: Start datetime.
             datetime_to: End datetime.
-            
+
         Returns:
             Merged list of kline dictionaries.
         """
         from datetime import timedelta
-        
+
         candidates = []
         paginator = self.s3.get_paginator('list_objects_v2')
-        
+
         # Calculate list of dates to query
         curr_date = datetime_from.date()
         end_date = datetime_to.date()
-        
+
         target_dates = []
         while curr_date <= end_date:
             target_dates.append(curr_date.strftime("%Y%m%d"))
             curr_date += timedelta(days=1)
-            
+
         for date_str in target_dates:
             # Construct prefix: {prefix}/{date_str}
             # The 'put' logic creates files like `{prefix}/YYYYMMDDHHMMSS_...`
             # So the prefix `{prefix}/YYYYMMDD` will efficiently filter them.
-            
+
             query_prefix = f"{self.prefix}/{date_str}"
-            
-            page_iterator = paginator.paginate(Bucket=self.bucket, Prefix=query_prefix)
+
+            page_iterator = paginator.paginate(
+                Bucket=self.bucket, Prefix=query_prefix)
 
             for page in page_iterator:
                 if 'Contents' not in page:
@@ -329,31 +343,33 @@ class S3KlineWrapper(S3Wrapper):
                     key = obj['Key']
                     if not key.endswith('.jsonl.zstd'):
                         continue
-                    
+
                     try:
                         fname = os.path.basename(key)
                         base = fname.replace('.jsonl.zstd', '')
                         parts = base.split('_')
                         # Old format: Start_End_Retrieval (3 parts)
                         # New format: Start_End_Exchange_Retrieval (4 parts)
-                        
+
                         if len(parts) >= 4:
                             f_start_str = parts[0]
                             f_end_str = parts[1]
                             # f_exchange = parts[2]
                             f_retrieval_str = parts[3]
                         elif len(parts) == 3:
-                             # Backward compatibility
+                            # Backward compatibility
                             f_start_str = parts[0]
                             f_end_str = parts[1]
                             f_retrieval_str = parts[2]
                         else:
                             continue
-                            
-                        f_start = datetime.strptime(f_start_str, "%Y%m%d%H%M%S")
+
+                        f_start = datetime.strptime(
+                            f_start_str, "%Y%m%d%H%M%S")
                         f_end = datetime.strptime(f_end_str, "%Y%m%d%H%M%S")
-                        f_retrieval = datetime.strptime(f_retrieval_str, "%Y%m%d%H%M%S")
-                        
+                        f_retrieval = datetime.strptime(
+                            f_retrieval_str, "%Y%m%d%H%M%S")
+
                         # Check overlap
                         if f_start <= datetime_to and f_end >= datetime_from:
                             candidates.append({
@@ -367,22 +383,22 @@ class S3KlineWrapper(S3Wrapper):
 
         # Sort candidates by retrieval time (ascending)
         candidates.sort(key=lambda x: x['retrieval_time'])
-        
+
         merged_data = {}
-        
+
         for can in candidates:
             # download_and_parse is in base class
             for record in self.download_and_parse(can['key']):
                 ts_val = record.get('timestamp')
                 if not ts_val:
                     continue
-                    
+
                 rec_dt = None
                 try:
                     rec_dt = datetime.strptime(ts_val, "%Y-%m-%d_%H:%M")
                 except ValueError:
                     pass
-                
+
                 if rec_dt:
                     if rec_dt < datetime_from or rec_dt > datetime_to:
                         continue
@@ -408,5 +424,5 @@ class S3KlineWrapper(S3Wrapper):
                 return datetime.strptime(t, "%Y-%m-%d_%H:%M")
             except:
                 return t
-                
+
         return sorted(merged_data.values(), key=sort_key)
