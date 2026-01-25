@@ -4,7 +4,7 @@ import yaml
 import zstandard as zstd
 import json
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterator, Dict, Any, Optional, List, Union
 import requests
 import zipfile
@@ -543,7 +543,7 @@ class HantooKlineLogger:
                 break
 
             # Go back 1 day
-            target_date -= datetime.timedelta(days=1)
+            target_date -= timedelta(days=1)
 
         self.target_date = target_date
         print(f"Target Date: {self.target_date}")

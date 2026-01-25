@@ -76,7 +76,7 @@ def main():
     if not client:
         return
         
-    s3_wrapper = S3KlineWrapper("rhetenor", "hantoo-stock-kline-1m", AWS_CONFIG)
+    s3_wrapper = S3KlineWrapper("rhetenor", "hantoo_stk_kline_1m", AWS_CONFIG)
 
     # 3. Find Last 5 Non-Holiday Days
     print("Identifying last 5 non-holiday days...")
@@ -176,7 +176,7 @@ def main():
                             continue
                             
                         r_time = r.get('stck_cntg_hour')
-                        ts_str = f"{d.strftime('%Y-%m-%d')}_{r_time[:4]}"
+                        ts_str = f"{d.strftime('%Y%m%d')}{r_time}"
                         
                         if ts_str not in daily_kline_buffer:
                             daily_kline_buffer[ts_str] = {

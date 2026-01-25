@@ -237,15 +237,8 @@ class S3KlineWrapper(S3Wrapper):
                 return datetime.min
             if isinstance(ts_val, datetime):
                 return ts_val
-            try:
-                # Common format used in examples
-                return datetime.strptime(ts_val, "%Y-%m-%d_%H:%M")
-            except ValueError:
-                try:
-                    return datetime.strptime(ts_val, "%Y%m%d%H%M%S")
-                except ValueError:
-                    # Try with ISO or whatever comes
-                    return datetime.min
+            # Common format used in examples
+            return datetime.strptime(ts_val, "%Y%m%d%H%M%S")
 
         # Group data by date
         data_by_date = {}
@@ -395,7 +388,7 @@ class S3KlineWrapper(S3Wrapper):
 
                 rec_dt = None
                 try:
-                    rec_dt = datetime.strptime(ts_val, "%Y-%m-%d_%H:%M")
+                    rec_dt = datetime.strptime(ts_val, "%Y%m%d%H%M%S")
                 except ValueError:
                     pass
 
@@ -421,7 +414,7 @@ class S3KlineWrapper(S3Wrapper):
         def sort_key(item):
             t = item.get('timestamp')
             try:
-                return datetime.strptime(t, "%Y-%m-%d_%H:%M")
+                return datetime.strptime(t, "%Y%m%d%H%M%S")
             except:
                 return t
 

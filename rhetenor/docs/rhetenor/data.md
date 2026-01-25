@@ -32,7 +32,7 @@ kosdaq_data = download_master("kosdaq", verbose=True)
 `HantooKlineLogger` manages the real-time or catch-up logging of 1-minute candle data from Korea Investment Securities (Hantoo).
 
 ### Features
-- **S3 Storage**: Stores aggregated minute bars in S3 with ZSTD compression (`hantoo-stock-kline-1m/{StartTime}_{EndTime}_{exchange_code}_{RetrievalTime}.jsonl.zstd`).
+- **S3 Storage**: Stores aggregated minute bars in S3 with ZSTD compression (`hantoo_stk_kline_1m/{StartTime}_{EndTime}_{exchange_code}_{RetrievalTime}.jsonl.zstd`).
 - **Format**: 
   ```json
   {

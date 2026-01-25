@@ -33,7 +33,7 @@ class TestHantooKlineLogger(unittest.TestCase):
         # Mock S3 list objects
         mock_s3_loader = mock_dataloader_cls.return_value
         # Return a fake key
-        mock_s3_loader.list_objects.return_value = iter(['hantoo-stock-kline-1m/20240101_100000.jsonl.zstd'])
+        mock_s3_loader.list_objects.return_value = iter(['hantoo_stk_kline_1m/20240101_100000.jsonl.zstd'])
         
         # Mock Kline Data
         # symbol, date, time -> return valid data

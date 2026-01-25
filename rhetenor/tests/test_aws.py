@@ -139,7 +139,7 @@ class TestS3Integration(unittest.TestCase):
     def setUp(self):
         # User requested prefix "test/"
         # Assuming bucket "rhetenor" based on project context, or typical kline bucket.
-        # The user didn't specify bucket, but "hantoo-stock-kline-1m" was previous prefix default.
+        # The user didn't specify bucket, but "hantoo_stk_kline_1m" was previous prefix default.
         # Most likely the bucket name is 'rhetenor' based on data.py
         self.bucket_name = "rhetenor" 
         self.prefix = "test"
