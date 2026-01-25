@@ -12,11 +12,11 @@ import zipfile
 sys.path.append(os.path.join(os.getcwd(), 'src'))
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from rhetenor.data import HantooKlineLogger, HantooClient, download_kospi_master
+from rhetenor.data import HantooKlineLogger, HantooClient, download_master
 
 class TestHantooKlineLogger(unittest.TestCase):
 
-    @patch('rhetenor.data.download_kospi_master')
+    @patch('rhetenor.data.download_master')
     @patch('rhetenor.data.HantooClient')
     @patch('rhetenor.data.DataLoader')
     @patch('builtins.open', new_callable=mock_open, read_data="app_key: test\napp_secret: test")
@@ -74,7 +74,7 @@ class TestHantooKlineLogger(unittest.TestCase):
         self.assertIn('20240101_100100.jsonl.zstd', call_args[1]['Key'])
 
     @patch('requests.get')
-    def test_download_kospi_master(self, mock_get):
+    def test_download_master(self, mock_get):
         # Create a valid zip file in memory
         mf = io.BytesIO()
         with zipfile.ZipFile(mf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -98,7 +98,7 @@ class TestHantooKlineLogger(unittest.TestCase):
         mock_get.return_value = mock_resp
         
         # Call function
-        result = download_kospi_master(verbose=False)
+        result = download_master(market="kospi", verbose=False)
         
         # Verify
         self.assertIn('A005930', result)
