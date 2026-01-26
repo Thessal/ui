@@ -623,10 +623,11 @@ class HantooKlineLogger:
             if elapsed < 0.5:
                 time.sleep(0.5 - elapsed)
 
+        retrieval_time = datetime.now() # must be calculated BEFORE beginning the request, to prevent stale data
+
         # Aggregate
         # We have lists of bars for each symbol.
         # We need to invert this to: Time -> {Sym -> Bar}
-
         time_aggregated = {}
 
         for sym, rows in results.items():
@@ -660,7 +661,7 @@ class HantooKlineLogger:
             self.updates.extend(updates)
             if len(self.updates) >= 15:
                 print(f"Uploading {len(self.updates)} records to S3...")
-                self.wrapper.put(self.updates)
+                self.wrapper.put(self.updates, retrieval_time=retrieval_time)
                 self.updates = []
         else:
             print("No updates needed.")

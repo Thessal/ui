@@ -248,7 +248,7 @@ class S3KlineWrapper(S3Wrapper):
                 updates.append(new_record)
         return updates
 
-    def put(self, data: list[dict]):
+    def put(self, data: list[dict], retrieval_time: Optional[datetime] = None):
         """
         Upload kline data to S3, splitting by date.
 
@@ -283,7 +283,9 @@ class S3KlineWrapper(S3Wrapper):
                 data_by_date[date_key] = []
             data_by_date[date_key].append(entry)
 
-        retrieval_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        if not retrieval_time:
+            retrieval_time = datetime.now()
+        retrieval_str = retrieval_time.strftime("%Y%m%d%H%M%S")
 
         # Format for filename: YYYYMMDDHHMMSS
         def fmt_ts(dt):
