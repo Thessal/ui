@@ -204,12 +204,13 @@ class HantooClient:
                 try:
                     data = yaml.safe_load(f)
                     token = data.get('token')
-                    # Format: YYYY-mm-dd HH:MM:SS
-                    expiry_str = data.get('valid-date')
-
-                    if token and expiry_str:
+                    expiry_dt = data.get('valid-date')
+                    if type(expiry_dt) == str:
+                        print("[data.py] Wrong token format - expiry")
                         expiry_dt = datetime.strptime(
-                            expiry_str, "%Y-%m-%d %H:%M:%S")
+                            expiry_dt, "%Y-%m-%d %H:%M:%S")
+
+                    if token and expiry_dt:
                         if expiry_dt > datetime.now():
                             self._access_token = token
                             self._token_expiry = expiry_dt
@@ -244,7 +245,7 @@ class HantooClient:
         with open(self.token_path, 'w') as f:
             yaml.dump({
                 'token': self._access_token,
-                'valid-date': expiry_str
+                'valid-date': self._token_expiry
             }, f)
 
     def get_headers(self, tr_id: str, tr_cont: str = "") -> Dict[str, str]:
@@ -505,7 +506,7 @@ class HantooKlineLogger:
                  hantoo_token_path: str = "./auth/hantoo_token.yaml",
                  aws_config_path: str = "./auth/aws_rhetenor.yaml",
                  bucket: str = "rhetenor",
-                 prefix: str = "hantoo-stock-kline-1m"):
+                 prefix: str = "hantoo_stk_kline_1m"):
         self.symbols = symbols
         self.exchange_code = exchange_code
         self.bucket = bucket
@@ -530,7 +531,8 @@ class HantooKlineLogger:
         )
 
         # Initialize AWS Kline Wrapper
-        self.wrapper = S3KlineWrapper(exchange_code, bucket, prefix, aws_config_path)
+        self.wrapper = S3KlineWrapper(
+            exchange_code, bucket, prefix, aws_config_path)
 
         self.universe = {}
 
@@ -575,7 +577,7 @@ class HantooKlineLogger:
         """
         # Load existing data
         print("Loading existing data from S3...")
-        start_dt = datetime.combine(self.target_date, datetime.min.time())
+        start_dt = datetime.combine(self.target_date - timedelta(days=1), datetime.min.time())
         # Use end of day
         from datetime import time as dt_time
         end_dt = datetime.combine(self.target_date, dt_time(23, 59, 59))
@@ -601,7 +603,7 @@ class HantooKlineLogger:
 
         for idx, sym in enumerate(self.symbols):
             start_t = time.time()
-            # print(f"[{idx+1}/{total_syms}] Fetching {sym}...", end='\r')
+            print(f"[{idx+1}/{len(self.symbols)}] Fetching {sym}...", end='\r')
 
             try:
                 headers, res = self.hantoo_client.inquire_time_itemchartprice(

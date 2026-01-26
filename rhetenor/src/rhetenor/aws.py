@@ -97,19 +97,13 @@ class S3Wrapper:
 
                 yield key
 
-    def _parse_postprocess(self, x):
-        """
-        Parse string values in json data
-        (converts str to int)
-        """
-        for symbol, entries in x["data"].items():
-            x["data"][symbol] = [int(y) for y in entries]
-        return x
-
-    def download_and_parse(self, key: str) -> Iterator[Dict[str, Any]]:
+    def download_and_parse(self, key: str):
         """
         Download a specific object, decompress it (if zstd), and parse JSON/JSONL.
         """
+        raise NotImplemented
+    
+    def _download_jsonl_zstd(self, key: str) -> Iterator[Dict[str, Any]]:
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             body = response['Body']
@@ -122,13 +116,34 @@ class S3Wrapper:
                     for line in text_stream:
                         if line.strip():
                             try:
-                                yield self._parse_postprocess(json.loads(line))
+                                yield json.loads(line)
+                                # yield self._parse_postprocess(json.loads(line))
                             except json.JSONDecodeError as e:
                                 print(
                                     f"Error decoding JSON in file {key}: {e}")
             else:
                 print(f"Skipping {key}")
                 pass
+
+        except Exception as e:
+            print(f"Error processing file {key}: {e}")
+            raise
+
+    def _download_json(self, key: str) -> Optional[Dict[str, Any]]:
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            body = response['Body']
+
+            # Check extension
+            if key.endswith('.json'):
+                try:
+                    return json.loads(body.read())
+                except json.JSONDecodeError as e:
+                    print(
+                        f"Error decoding JSON in file {key}: {e}")
+            else:
+                print(f"Skipping {key}")
+                return None
 
         except Exception as e:
             print(f"Error processing file {key}: {e}")
@@ -171,15 +186,7 @@ class S3MasterWrapper(S3Wrapper):
         """
         key = f"{self.prefix}/{date_str}_{market}.json"
         print(f"Checking S3 for {key}...")
-        try:
-            # Re-use download_and_parse which yields items
-            # Since master file is a single JSON object (dict), it yields one item.
-            for item in self.download_and_parse(key):
-                return item
-        except Exception:
-            return None
-        return None
-
+        return self._download_json(key)
 
 class S3KlineWrapper(S3Wrapper):
     """
@@ -307,6 +314,15 @@ class S3KlineWrapper(S3Wrapper):
             self.s3.put_object(Bucket=self.bucket, Key=key,
                                Body=compressed_data)
 
+    def _parse_postprocess(self, x):
+        """
+        Parse string values in json data
+        (converts str to int)
+        """
+        for symbol, entries in x["data"].items():
+            x["data"][symbol] = [int(y) for y in entries]
+        return x
+    
     def get(self, datetime_from: datetime, datetime_to: datetime) -> list[dict]:
         """
         Get kline data from S3 within the specified range.
@@ -383,7 +399,8 @@ class S3KlineWrapper(S3Wrapper):
 
         for can in candidates:
             # download_and_parse is in base class
-            for record in self.download_and_parse(can['key']):
+            for record in self._download_jsonl_zstd(can['key']):
+                record = self._parse_postprocess(record)
                 ts_val = record.get('timestamp')
                 if not ts_val:
                     continue
