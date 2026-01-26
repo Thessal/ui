@@ -102,7 +102,7 @@ class S3Wrapper:
         Download a specific object, decompress it (if zstd), and parse JSON/JSONL.
         """
         raise NotImplemented
-    
+
     def _download_jsonl_zstd(self, key: str) -> Iterator[Dict[str, Any]]:
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
@@ -188,12 +188,13 @@ class S3MasterWrapper(S3Wrapper):
         print(f"Checking S3 for {key}...")
         return self._download_json(key)
 
+
 class S3KlineWrapper(S3Wrapper):
     """
     AWS S3 Wrapper for storing and retrieving Hantoo kline data.
     """
 
-    def __init__(self, exchange_code: str, bucket: str, prefix: str = "hantoo_stk_kline_1m",
+    def __init__(self, exchange_code: str, bucket: str = "rhetenor", prefix: str = "hantoo_stk_kline_1m",
                  auth_config_path: str = "auth/aws_rhetenor.yaml", region: Optional[str] = None):
         # Exchange code : "J", "NX", "UN"
         super().__init__(bucket, prefix, auth_config_path, region)
@@ -218,9 +219,9 @@ class S3KlineWrapper(S3Wrapper):
         """
         updates = []
         for t_str, new_record in new_data_map.items():
+            new_record = self._parse_postprocess(new_record)
             if t_str in self.loaded_data_map:
                 old_record = self.loaded_data_map[t_str]
-                new_record = self._parse_postprocess(new_record)
 
                 # Check fields
                 if old_record.get('fields') != new_record.get('fields'):
@@ -231,7 +232,7 @@ class S3KlineWrapper(S3Wrapper):
                 else:
                     # Fields same -> Merge data
                     if old_record.get('data') == new_record.get('data'):
-                        continue # do not append to updates
+                        continue  # do not append to updates
                     else:
                         # Merge Inconsistent data
                         print(f"[aws.py] updating inconsistent data : {t_str}")
@@ -241,7 +242,7 @@ class S3KlineWrapper(S3Wrapper):
                         print(f"old : {debugstr_1[:50]}..{debugstr_1[-50:]}")
                         print(f"new : {debugstr_2[:50]}..{debugstr_2[-50:]}")
                         # Upload
-                        updates.append(new_record) # not merged record
+                        updates.append(new_record)  # not merged record
             else:
                 # New data
                 self.loaded_data_map[t_str] = new_record
@@ -333,7 +334,7 @@ class S3KlineWrapper(S3Wrapper):
         for symbol, entries in x["data"].items():
             x["data"][symbol] = [int(y) for y in entries]
         return x
-    
+
     def get(self, datetime_from: datetime, datetime_to: datetime) -> list[dict]:
         """
         Get kline data from S3 within the specified range.
