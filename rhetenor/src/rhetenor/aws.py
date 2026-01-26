@@ -220,23 +220,32 @@ class S3KlineWrapper(S3Wrapper):
         for t_str, new_record in new_data_map.items():
             if t_str in self.loaded_data_map:
                 old_record = self.loaded_data_map[t_str]
+                new_record = self._parse_postprocess(new_record)
 
                 # Check fields
                 if old_record.get('fields') != new_record.get('fields'):
                     # Field diff -> Treat as new (overwrite/update)
                     self.loaded_data_map[t_str] = new_record
+                    print(f"[aws.py] warning: field mismatch")
+                    updates.append(new_record)
                 else:
                     # Fields same -> Merge data
                     if old_record.get('data') == new_record.get('data'):
-                        continue
-
-                    # Merge
-                    old_record['data'].update(new_record['data'])
-                    # Explicitly set (though ref is same)
-                    self.loaded_data_map[t_str] = old_record
+                        continue # do not append to updates
+                    else:
+                        # Merge Inconsistent data
+                        print(f"[aws.py] updating inconsistent data : {t_str}")
+                        debugstr_1 = str(old_record['data'])
+                        old_record['data'].update(new_record['data'])
+                        debugstr_2 = str(old_record['data'])
+                        print(f"old : {debugstr_1[:50]}..{debugstr_1[-50:]}")
+                        print(f"new : {debugstr_2[:50]}..{debugstr_2[-50:]}")
+                        # Upload
+                        updates.append(new_record) # not merged record
             else:
+                # New data
                 self.loaded_data_map[t_str] = new_record
-            updates.append(new_record)
+                updates.append(new_record)
         return updates
 
     def put(self, data: list[dict]):
