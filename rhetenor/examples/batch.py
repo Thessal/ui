@@ -6,36 +6,18 @@ import json
 from datetime import datetime, timedelta
 import pandas as pd
 from rhetenor import data
-from rhetenor.backtest import normalize_position, compute
+from rhetenor.backtest import initialize_runtime, normalize_position, compute
 from rhetenor.stat import calculate_stat
 
-cfgs = {"hantoo_config_path": "../auth/hantoo.yaml", "hantoo_token_path":
-        "../auth/hantoo_token.yaml", "aws_config_path": "../auth/aws_rhetenor.yaml"}
-s3_cfgs = {"auth_config_path": "../auth/aws_rhetenor.yaml"}
 SILENT = True
-
+s3_cfgs = {"auth_config_path": "../auth/aws_rhetenor.yaml"}
 s3 = data.S3KlineWrapper(exchange_code="UN", bucket="rhetenor", **s3_cfgs)
 day_start = datetime.combine(datetime.now().date(), datetime.min.time())
 s3.load(datetime_from=datetime.now()-timedelta(days=10), datetime_to=day_start)
-df = pd.DataFrame({k: pd.DataFrame(v["data"], index=v["fields"]).stack(
-) for k, v in s3.loaded_data_map.items()}).stack()
-df.sort_index()
-fields = ["open", "high", "low", "close", "volume"]
-dfs = {k: df[k].unstack(level=0).sort_index(
-    axis=0).sort_index(axis=1).astype(float) for k in fields}
-assert all([(x.index == dfs["close"].index).all() for x in dfs.values()])
-assert all([(x.columns == dfs["close"].columns).all() for x in dfs.values()])
-runtime_data = {f'data("{k}")': v.values for k, v in dfs.items()}
-
 
 # Initialize runtime
-x_close = runtime_data['data("close")']
-x_close_d1 = np.roll(runtime_data['data("close")'], shift=1, axis=0)
-x_close_d1[0] = x_close[0]
-x_logret = np.log(x_close / x_close_d1)
-runtime_data['data("price")'] = x_close
-runtime_data['data("returns")'] = x_logret  # logret
-runtime = Runtime(data=runtime_data)
+runtime = initialize_runtime(s3=s3, add_logret=True)
+x_logret = runtime.cache['data("returns")']
 
 # Load generated alphas
 generated = dict()
@@ -45,14 +27,12 @@ for f in glob("./generate*/*.json"):
         generated[fname] = json.load(fp)
 
 
+# Calculate alphas and save stats
 def handler(signum, frame):
     raise Exception("Timeout")
 
 
 signal.signal(signal.SIGALRM, handler)
-
-
-# Calculate alphas and save stats
 valid_jsons = []
 invalid_jsons = []
 for fname, g in generated.items():
@@ -73,7 +53,7 @@ for fname, g in generated.items():
             position_raw[:-10], position[:-10], (np.exp(x_logret)-1)[10:], include_pnl=True)
 
         valid_jsons.append(fname)
-        # returns = stat.pop("returns_series")
+        # returns = stat.pop("returns")
         signal_id = fname.replace("/", "_").replace(".", "_")
 
         pd.Series({"path": fname, "stat": stat, "stat_delay": stat_delay, "stat_decay": stat_decay,
