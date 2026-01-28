@@ -91,7 +91,7 @@ class Bars(MarketData):
         assert all((t in interval)
                    for t in agg["ts"]), f"{agg['ts']} not in Interval {interval}"
         res = {field: self.agg_fn[field](
-            df_x=pd.DataFrame(agg[field])) for field in self.fields}
+            df_x=pd.DataFrame(agg[field], columns=self.columns)) for field in self.fields}
         return interval, res
 
     def __iter__(self) -> Iterator[Tuple[pd.Interval, Dict[str, pd.Series]]]:
@@ -196,45 +196,36 @@ class CloseBacktester(Backtester):
         super().__init__(data)
         self.fee = fee
 
-    def _execution_assumption(self, old_position: pd.Series, new_position: pd.Series, last_price: pd.Series, bar: Dict[str, pd.Series]) -> Tuple[pd.Series, float, float, float, float, pd.Series]:
+    def _execution_assumption(self, old_position: pd.Series, new_position: pd.Series, prev_bar: Dict[str, pd.Series], bar: Dict[str, pd.Series]) -> Tuple[pd.Series, float, float, float, float, float, pd.Series]:
         # old_position: Position Dollar Values at prev_bar Close
         # new_position: Target Dollar Values at bar Close
 
-        # 1. Calculate PnL from holding old_position from prev_bar.close to bar.close
-        assert np.isfinite(last_price).all(), "last_price contains nans"
-        prev_close = last_price
-        curr_close = prev_close.where(np.isfinite(bar["close"]), bar["close"])
+        # 1. Forward-fill bars, calculate retrns
+        curr_bar = {f: bar[f].where(np.isfinite(bar[f]), prev_bar[f]).fillna(0) for f in bar.keys() if f != "volume"}
+        curr_bar["volume"] = bar["volume"].fillna(0)
 
-        # Avoid division by zero
-        returns = np.zeros_like(prev_close)
-        mask = (prev_close != 0) & (
-            ~np.isnan(prev_close)) & (~np.isnan(curr_close))
-        returns[mask] = (curr_close[mask] / prev_close[mask]) - 1.0
-
-        # drift
-        # pnl_holding = np.nansum(old_position * returns) # unrealized
-        # Value of position before rebalance
+        # 2. Drift return of current position, occured during the last period
+        returns = (curr_bar["open"]-prev_bar["open"]).div(prev_bar["open"])
+        returns.loc[~np.isfinite(returns)]=0
         drifted_position = old_position * (1.0 + returns)
+        unrealized_return = (drifted_position - old_position).sum()
 
-        # 2. Rebalance to new_position
-        trade_amt = new_position - drifted_position
-        trade_amt = np.where((bar["volume"] == 0) |
-                             np.isnan(curr_close), 0, trade_amt)
-        
-        # Slippage : If limit order at prev close is not matched, send market order.
-        # This slippage estimation may not work as intended, if weight is negative 
-        slippage_buy = np.where((trade_amt > 0) & (last_price<=bar["low"]), bar["high"]/prev_close - 1, 0)
-        slippage_sell = np.where((trade_amt < 0) & (last_price>=bar["high"]), bar["low"]/prev_close - 1, 0)
-        slippage = slippage_buy + slippage_sell
-
-        # Net PnL
-        turnover = np.sum(np.abs(trade_amt))
-        slippage_cost = np.sum(np.abs(trade_amt * slippage))
-        fee_cost = turnover * self.fee
-        ret_before_fee_slippage = -np.nansum(trade_amt)
+        # 3. Rebalance to new_position
+        trade_amt = (new_position - drifted_position).where(bar["volume"]>0, 0)
+        realized_return = -trade_amt.sum()
         realized_position = drifted_position + trade_amt
 
-        return realized_position, ret_before_fee_slippage, fee_cost, slippage_cost, turnover, last_price
+        # 4 Costs 
+        turnover = np.sum(np.abs(trade_amt))
+        fee_cost = turnover * self.fee
+        # Slippage assumption : If limit order at prev close is not matched, send market order.
+        # This slippage estimation may not work as intended, if weight is negative 
+        slippage_buy = np.where((trade_amt > 0) & (prev_bar["close"]<=bar["low"]), bar["high"]/prev_bar["close"] - 1, 0)
+        slippage_sell = np.where((trade_amt < 0) & (prev_bar["close"]>=bar["high"]), bar["low"]/prev_bar["close"] - 1, 0)
+        slippage = np.abs(trade_amt * (slippage_buy + slippage_sell))
+        slippage_cost = np.sum(slippage)
+
+        return realized_position, unrealized_return, realized_return, fee_cost, slippage_cost, turnover, curr_bar
 
     def run(self, position: Position):
         self._check_position(position)
@@ -256,7 +247,7 @@ class CloseBacktester(Backtester):
             while ts_pos < intv_bar.left:
                 ts_pos, pos = next(pos_iter)
 
-            last_price = bar["close"]
+            last_bar = bar
             prev_pos = pos  # np.zeros_like(pos) # ignore enter cost
 
         except StopIteration:
@@ -272,10 +263,10 @@ class CloseBacktester(Backtester):
                 # print(intv_bar.left, ts_pos.floor(position.interval))
                 # make sure bars and pos are aligned
                 assert intv_bar.left == ts_pos.floor(position.interval)
-                prev_pos, ret, fee, slippage, turnover, last_price = self._execution_assumption(
-                    prev_pos, pos, last_price, bar)
+                prev_pos, ret_unreal, ret_real, fee, slippage, turnover, last_bar = self._execution_assumption(
+                    prev_pos, pos, last_bar, bar)
                 positions[intv_bar.left] = prev_pos
-                results.append({"ts": intv_bar.left, "ret": ret,
+                results.append({"ts": intv_bar.left, "ret": ret_unreal, "ret_real": ret_real,
                                "fee": fee, "slippage": slippage, "turnover": turnover})
             except StopIteration:
                 break

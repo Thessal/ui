@@ -92,10 +92,11 @@ def f(x):
 
 from multiprocessing import Pool
 import tqdm
-pool = Pool(processes=8)
+pool = Pool(processes=28)
 tasks = [(fname, g) for fname, g in generated.items()]
 for _ in tqdm.tqdm(pool.imap_unordered(f, tasks), total=len(tasks)):
     pass
+
 
 # pd.Series(valid_jsons).to_csv("valid_jsons.csv")
 # pd.Series(invalid_jsons).to_csv("invalid_jsons.csv")
