@@ -211,19 +211,28 @@ class CloseBacktester(Backtester):
         unrealized_return = (drifted_position - old_position).sum()
 
         # 3. Rebalance to new_position
-        trade_amt = (new_position - drifted_position).where(bar["volume"]>0, 0)
-        realized_return = -trade_amt.sum()
-        realized_position = drifted_position + trade_amt
+        trade_amt = (new_position - drifted_position)
 
         # 4 Costs 
         turnover = np.sum(np.abs(trade_amt))
         fee_cost = turnover * self.fee
-        # Slippage assumption : If limit order at prev close is not matched, send market order.
+        # Slippage assumption : If limit order at prev close is not matched, send agressive order.
         # This slippage estimation may not work as intended, if weight is negative 
-        slippage_buy = np.where((trade_amt > 0) & (prev_bar["close"]<=bar["low"]), bar["high"]/prev_bar["close"] - 1, 0)
-        slippage_sell = np.where((trade_amt < 0) & (prev_bar["close"]>=bar["high"]), bar["low"]/prev_bar["close"] - 1, 0)
+        buy_target_price = prev_bar["close"] * (1 + 0.000)
+        sell_target_price = prev_bar["close"] * (1 - 0.000)
+        aggression = 0.005
+        slippage_buy = np.where((trade_amt > 0) & (buy_target_price<=bar["low"]), bar["high"]/buy_target_price - 1, prev_bar["close"]/buy_target_price - 1)
+        slippage_sell = np.where((trade_amt < 0) & (sell_target_price>=bar["high"]), bar["low"]/sell_target_price - 1, prev_bar["close"]/sell_target_price - 1)
+        
+        # 5. Realized trades
+        trade_amt = trade_amt.where(bar["volume"]>0, 0)
+        trade_amt = trade_amt.where(slippage_buy-slippage_sell < aggression, 0)
+
         slippage = np.abs(trade_amt * (slippage_buy + slippage_sell))
         slippage_cost = np.sum(slippage)
+
+        realized_return = -trade_amt.sum()
+        realized_position = drifted_position + trade_amt
 
         return realized_position, unrealized_return, realized_return, fee_cost, slippage_cost, turnover, curr_bar
 

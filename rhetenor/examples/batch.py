@@ -76,7 +76,7 @@ def f(x):
         # valid_jsons.append(fname)
         signal_id = fname.replace("/", "_").replace(".", "_")
 
-        df_output = pd.Series({"path": fname, "stat": stat, "stat_delay": stat_delay, "stat_decay": stat_decay})
+        df_output = pd.Series({"path": fname, "stat": stat, "stat_delay": stat_delay, "stat_decay": stat_decay ,"pos_zerofilled": pos_zerofilled, "input_code":input_code})
         df_output.to_pickle(f"pnls/{signal_id}.pkl")
     except Exception as e:
         print(repr(e))
