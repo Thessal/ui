@@ -3,7 +3,7 @@
 URL = "https://new.real.download.dws.co.kr/common/master/konex_code.mst.zip"
 FILENAME = "konex_code.mst"
 PARSER_TYPE = "fixed_suffix"
-SUFFIX_LENGTH = 184
+# SUFFIX_LENGTH = 184
 
 # Derived from kis_konex_code_mst.py slices:
 # scrt_grp_cls_code = row[-184:-182].strip() -> 2

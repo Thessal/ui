@@ -80,7 +80,7 @@ def download_master(market: str = "kospi", date_str: Optional[str] = None,
     mst_filename = spec.FILENAME
     field_specs = spec.FIELD_SPECS
     part2_columns = spec.COLUMNS
-    suffix_length = spec.SUFFIX_LENGTH
+    suffix_length = sum(field_specs)
 
     try:
         if verbose:

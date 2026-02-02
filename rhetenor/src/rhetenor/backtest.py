@@ -275,7 +275,7 @@ class CloseBacktester(Backtester):
                 prev_pos, ret_unreal, ret_real, fee, slippage, turnover, last_bar = self._execution_assumption(
                     prev_pos, pos, last_bar, bar)
                 positions[intv_bar.left] = prev_pos
-                results.append({"ts": intv_bar.left, "ret": ret_unreal, "ret_real": ret_real,
+                results.append({"ts": intv_bar.left, "ret": ret_unreal, "ret_realized": ret_real,
                                "fee": fee, "slippage": slippage, "turnover": turnover})
             except StopIteration:
                 break

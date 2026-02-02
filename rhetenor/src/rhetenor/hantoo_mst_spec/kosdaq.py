@@ -3,7 +3,7 @@
 URL = "https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip"
 FILENAME = "kosdaq_code.mst"
 PARSER_TYPE = "fixed_suffix"
-SUFFIX_LENGTH = 222
+# SUFFIX_LENGTH = 222
 
 FIELD_SPECS = [
     2, 1,

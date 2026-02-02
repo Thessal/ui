@@ -46,12 +46,12 @@ pub fn download_kospi_50() -> PyResult<Vec<String>> {
     
     for line in decoded.lines() {
         let len = line.chars().count();
-        if len <= 228 {
+        if len <= 227 {
             continue;
         }
         
-        // Part 1 is line[0..len-228]
-        // Part 2 is line[len-228..]
+        // Part 1 is (line+"\n")[0..len-228]
+        // Part 2 is (line+"\n")[len-228..]
         
         // KOSPI50 flag is at offset 20 in Part 2.
         // Offsets in Part 2:
@@ -62,15 +62,15 @@ pub fn download_kospi_50() -> PyResult<Vec<String>> {
         // Fortunately, Part 2 seems to be mostly flags and numbers, which are ASCII.
         // But to be safe, we use chars iterator.
         
-        let part2_start_index = len - 228;
+        let part2_start_index = len - 227;
         // Optimization: We could just iterate from end?
         // Or just map chars.
         
         // Let's get the chars of the line.
         let chars: Vec<char> = line.chars().collect();
-        if chars.len() <= 228 { continue; }
+        if chars.len() <= 227 { continue; }
         
-        let part2 = &chars[chars.len()-228..];
+        let part2 = &chars[chars.len()-227..];
         
         // Check index 20
         if part2.len() > 20 {

@@ -3,7 +3,7 @@
 URL = "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip"
 FILENAME = "kospi_code.mst"
 PARSER_TYPE = "fixed_suffix"
-SUFFIX_LENGTH = 228
+# SUFFIX_LENGTH = 228
 
 FIELD_SPECS = [
     2, 1, 4, 4, 4,              # group_code .. industry_small
