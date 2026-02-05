@@ -34,5 +34,8 @@ in pkgs.mkShell {
       boto3
       zstandard
       pyyaml
+
+      # Chart 
+      plotly
   ]); 
 }

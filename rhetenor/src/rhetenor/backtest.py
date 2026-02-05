@@ -4,44 +4,94 @@ import numpy as np
 import pandas as pd
 import datetime
 
-
-def s3_to_df(s3):
-    # TODO: let Bar class manage it 
-    if not all(len(k)==12 for k in s3.loaded_data_map.keys()):
-        print("Warning: Timestamp length is not 12 (YYYYMMDDHHMM) : skipped")
-    df = pd.DataFrame({k: pd.DataFrame(v["data"], index=v["fields"]).stack(
-    ) for k, v in s3.loaded_data_map.items() if len(k)==12}).stack()
-    df = df.sort_index().unstack(level=1).sort_index(axis=1)
-    timestamps = pd.to_datetime(
-        df.index.get_level_values(1), format="%Y%m%d%H%M")
-    fields = df.index.get_level_values(0)
-    df.index = pd.MultiIndex.from_arrays(
-        [timestamps, fields], names=["timestamp", "field"])
+def unstack(df):
+    # df -> dfs
+    # [ts*field*instr] -> {field: [ts * instr]}
     dfs = {f: df.swaplevel(0, 1, axis=0).loc[f].sort_index(
     ) for f in df.index.get_level_values(1).unique()}
-
     idxs = [v.index for v in dfs.values()]
     cols = [v.columns for v in dfs.values()]
-    assert all([all(x == idxs[0]) for x in idxs])
-    assert all([all(x == cols[0]) for x in cols])
-    return df.sort_index(), dfs
+    assert all([all(x == idxs[0]) for x in idxs]), "s3 data failed to parse due to index consistency"
+    assert all([all(x == cols[0]) for x in cols]), "s3 data failed to parse due to column consistency"
+    return dfs
 
-def overnight_synthetic_bar(s3_dfs):
-    # s3_dfs : {field:DataFrame[time*instrs]}
+def stack(dfs):
+    # dfs -> df
+    # {field: [ts * instr]} -> [ts*field*instr]
+    df = pd.concat(dfs).swaplevel(0,1).sort_index()
+    return df
+         
+def s3_to_df(s3):
+    # [ts*field*instr]
+    records = s3.loaded_data_map
+    # check date format
+    if not all(len(k)==12 for k in records.keys()):
+        print("Warning: Timestamp length is not 12 (YYYYMMDDHHMM) : skipped")
+
+    fields = records[sorted(records.keys())[0]]["fields"]
+    records = {pd.to_datetime(k, format="%Y%m%d%H%M"):v for k,v in records.items() if len(k)==12}
+
+    records = {
+        (ts, instr): dict(zip(info["fields"], bars)) 
+        for ts, info in records.items()
+        for instr, bars in info["data"].items()
+        }
+    df = pd.DataFrame(records).T
+    df = df.stack().unstack(1)
+    df = df.sort_index(axis=0).sort_index(axis=1)
+
+    try:
+        np.testing.assert_array_equal(df, stack(unstack(df)))
+    except:
+        raise Exception("Data is not invariant under stack transform")
+    return df
+
+def overnight_synthetic_bar(s3_df, open_time:int = 900, close_time:int = 1530):
+    # s3_dfs : {field : DataFrame[time*instrs]}
+    # s3_df : DataFrame[ts*field*instr]
     # TODO: let Bar class manage it 
+    instrs = s3_df.columns
     volume_aggregation_method = "max"
-    agg = {"open":"first", "high":"max", "low":"min", "close":"last", "volume":volume_aggregation_method, "acc_krw_vol":"last"}
-    result = dict()
-    for field,data in agg.items():
-        data = s3_dfs[field]
-        main_market_filter = data.index.map(lambda x: 900 <= x.hour*100 + x.minute <= 1500)
-        overnight_filter = ~main_market_filter
-        data_overnight = data.loc[overnight_filter]
-        synthetic_bar = data_overnight.groupby((data_overnight.index-pd.Timedelta(hours=15)).date).agg(agg[field])
-        synthetic_bar.index = pd.to_datetime(synthetic_bar.index) + pd.Timedelta(hours=24+9, minutes=-1)
-        data_all = pd.concat([data.loc[main_market_filter], synthetic_bar], axis=0).sort_index()
-        result[field] = data_all
-    assert(all(all(x.index == result["close"].index) for x in result.values()))
+    agg = {
+        "open":lambda x: x.iloc[0], 
+        "high":"max", 
+        "low":"min", 
+        "close":lambda x: x.iloc[-1], 
+        "volume":volume_aggregation_method, 
+        "acc_krw_vol":lambda x: x.iloc[-1], 
+        }
+
+    df = s3_df.unstack(1)
+
+    output = []
+    buffer = dict()
+    for i,x in df.iterrows():
+        time = i.hour*100 + i.minute
+        if time == open_time:
+            # Aggregete overnight data
+            if buffer : 
+                df_tmp = pd.DataFrame(buffer).T
+                agg_methods = {(instr, field):agg[field] for instr, field in df_tmp.columns}
+                synthetic_bar = df_tmp.agg(agg_methods)
+                synthetic_time = sorted(buffer.keys())[-1]
+                synthetic_bar = pd.DataFrame({synthetic_time:synthetic_bar.to_dict()}).T
+                output.append(synthetic_bar)
+                buffer.clear()
+            buffer[i] = x
+        elif time == close_time:
+            # Intraday data
+            buffer[i] = x
+            output.append(pd.DataFrame(buffer).T)
+            buffer.clear()
+        else:
+            buffer[i] = x
+    output.append(pd.DataFrame(buffer).T)
+    buffer.clear()
+    
+    result = pd.concat(output).stack(future_stack=True)
+    result = result.sort_index(axis=0).sort_index(axis=1)
+    assert len(result.columns) == len(instrs), "columns changes during dataframe operation"
+    assert all(result.columns == instrs), "columns changes during dataframe operation"
     return result
 
 
@@ -93,10 +143,10 @@ class Bars(MarketData):
     def __init__(self, data: pd.DataFrame, interval: datetime.timedelta):
         self.fields = ["open", "high", "low", "close", "volume"]
         self.columns = data.columns
-        assert data.index.nlevels == 2
-        assert data.index.get_level_values(0).dtype == "<M8[ns]"
+        assert data.index.nlevels == 2, "bar initialization failure due to input data index depth"
+        assert data.index.get_level_values(0).dtype == "<M8[ns]", "bar initialization failure due to input timestamp dtype"
         assert np.isin(np.array(self.fields),
-                       data.index.get_level_values(1).unique()).all()
+                    data.index.get_level_values(1).unique()).all(), "bar initialization failure due to unrecognized fields"
         self.interval = interval
         super().__init__(data)
         self.agg_fn = {
@@ -179,7 +229,7 @@ class Backtester:
         return data
 
     def _check_position(self, position: pd.DataFrame):
-        assert hasattr(self.data, "columns") and hasattr(position, "columns")
+        assert hasattr(self.data, "columns") and hasattr(position, "columns"), "Attribute position missing"
         assert all(position.columns ==
                    self.data.columns), f"Position columns {position.columns} do not match data columns {self.data.columns}"
 
@@ -260,7 +310,7 @@ class CloseBacktester(Backtester):
 
     def run(self, position: Position):
         self._check_position(position)
-        assert self.data.interval == position.interval
+        assert self.data.interval == position.interval, "data interval mismatch between bar and position in the backtester"
 
         pos_nanfilled, pos_zerofilled = self._preprocess_position(position)
         bars = iter(self.data)
@@ -293,7 +343,7 @@ class CloseBacktester(Backtester):
                 ts_pos, pos = next(pos_iter)
                 # print(intv_bar.left, ts_pos.floor(position.interval))
                 # make sure bars and pos are aligned
-                assert intv_bar.left == ts_pos.floor(position.interval)
+                assert intv_bar.left == ts_pos.floor(position.interval), f"record align miss in backtester : \nBar: {intv_bar}, {intv_bar.left}\nPosition: {ts_pos}, {ts_pos.floor(position.interval)}"
                 prev_pos, ret_unreal, ret_real, fee, slippage, turnover, last_bar = self._execution_assumption(
                     prev_pos, pos, last_bar, bar)
                 positions[intv_bar.left] = prev_pos

@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta
 import pandas as pd
 from rhetenor import data
-from rhetenor.backtest import s3_to_df, initialize_runtime, compute, Bars, Position, CloseBacktester
+from rhetenor.backtest import s3_to_df, initialize_runtime, compute, Bars, Position, CloseBacktester, overnight_synthetic_bar, stack, unstack
 from rhetenor.stat import calculate_stat
 
 SILENT = True
@@ -19,8 +19,17 @@ day_start = datetime.combine(datetime.now().date(), datetime.min.time())
 s3.load(datetime_from=datetime.now()-timedelta(days=10), datetime_to=day_start)
 
 # Initialize runtime
-df, dfs = s3_to_df(s3)
-runtime = initialize_runtime(dfs=dfs, add_logret=True)
+df = s3_to_df(s3)
+df = overnight_synthetic_bar(df) # Fill overnight gap
+dfs = unstack(df)
+dfs["price"] = dfs["close"].copy()
+dfs["returns"] = dfs["close"].pct_change().clip(-1,1).copy()
+dfs["returns"].loc[dfs["returns"].index.hour<9] = 0 # Drop overnight return # TODO let Bar class handle it 
+dfs_idx = set(dfs["close"].index)
+df_idx_filter = df.index.get_level_values(0).isin(dfs_idx)
+df = df.loc[df_idx_filter]
+
+runtime = initialize_runtime(dfs=dfs, add_logret=False, check_corruption=True)
 bars = Bars(data=df, interval=SIM_INTERVAL)
 backtester = CloseBacktester(data=bars, fee=0.1 * 0.01)
 
@@ -50,11 +59,21 @@ if TIMEOUT:
 # invalid_jsons = []
 # for fname, g in generated.items():
 def f(x):
+    ## debug : reinitializing backtester every time to check corruption
+    bars = Bars(data=df.copy(), interval=SIM_INTERVAL)
+    backtester = CloseBacktester(data=bars, fee=0.1 * 0.01)
+    input_code = ""
+    runtime = initialize_runtime(dfs={k:v.copy() for k,v in dfs.items()}, add_logret=False, check_corruption=True)
+
     fname, g = x
     try:
         if TIMEOUT:
             signal.alarm(60) # turn off when debugging
         input_code = g['generation_result']['code']
+
+        # fix common bugs
+        input_code = input_code.replace('data("', 'data(id="')
+
         position_input = compute(runtime, input_code, silent=SILENT)
 
         position = Position(
@@ -81,6 +100,9 @@ def f(x):
     except Exception as e:
         print(repr(e))
         stat = {"error": repr(e)}
+        signal_id = fname.replace("/", "_").replace(".", "_")
+        df_output = pd.Series({"path": fname, "stat": stat, "input_code":input_code})
+        df_output.to_pickle(f"pnls/{signal_id}.pkl")
         # invalid_jsons.append(fname)
     g["calculation_result"] = stat
     # with open(f"./calculated_KRX/{fname}.json", "wt") as f:
