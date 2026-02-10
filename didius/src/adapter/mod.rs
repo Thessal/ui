@@ -13,23 +13,9 @@ pub struct Trade {
     pub timestamp: f64,
 }
 
-#[derive(Debug, Clone)]
-pub enum IncomingMessage {
-    OrderBookDelta(crate::oms::order_book::OrderBookDelta),
-    Trade(Trade),
-    Execution {
-        order_id: String,
-        fill_qty: i64,
-        fill_price: Decimal,
-    },
-    OrderBookSnapshot(crate::oms::order_book::OrderBookSnapshot),
-    OrderUpdate {
-        order_id: String,
-        state: crate::oms::order::OrderState,
-        msg: Option<String>,
-        updated_at: f64,
-    },
-}
+pub use crate::message::Message as IncomingMessage;
+use crate::message::Message;
+
 
 pub trait Adapter: Send + Sync {
     fn connect(&self) -> Result<()>;
@@ -39,6 +25,8 @@ pub trait Adapter: Send + Sync {
     fn get_order_book_snapshot(&self, symbol: &str) -> Result<OrderBook>;
     fn get_account_snapshot(&self, account_id: &str) -> Result<AccountState>;
     fn modify_order(&self, order_id: &str, price: Option<Decimal>, qty: Option<i64>) -> Result<bool>;
+    fn subscribe(&self, symbols: &[String]) -> Result<()>;
+    fn set_monitor(&self, sender: std::sync::mpsc::Sender<IncomingMessage>);
 }
 
 pub mod mock;

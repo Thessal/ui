@@ -17,7 +17,7 @@ let
           owner = "Thessal";
           repo = "ui";
           rev = "main";
-          sha256 = "sha256-Q5G7VSAKar3dcSN03ZFVryQZUkRRfyPcfMs8gvRdTzg=";
+          sha256 = "sha256-X3abDj5gzsKGzTJgoftYo69GCvZOSM9qnpeGI9kBVNw=";
         };
   python_butterflow = import ./nixfiles/python.nix { pkgs=pkgs; }; # butterflow and morpho
   # python_butterflow = pkgs.python313
@@ -27,7 +27,7 @@ let
     packageOverrides = self: super: {
       didius = self.buildPythonPackage rec {
         pname = "didius";
-        version = "0.1.2";
+        version = "0.1.3";
         format = "pyproject";
         src = rhetenor_didius + "/didius";
         doCheck = false;
@@ -43,7 +43,7 @@ let
       };
       rhetenor = self.buildPythonPackage rec {
         pname = "rhetenor"; 
-        version = "0.1.2"; 
+        version = "0.1.3"; 
         src = rhetenor_didius + "/rhetenor";
         buildInputs = with python.pkgs; [ hatchling pythonEnv_rhetenor ];
         format = "pyproject"; 
@@ -57,9 +57,28 @@ let
       };
     };
   };
+  rhetenorStatistics = pkgs.rustPlatform.buildRustPackage {
+    pname = "rhetenor-statistics";
+    version = "0.1.0";
+    src = ./rhetenor/statistics;
+    cargoLock = {
+      lockFile = ./rhetenor/statistics/Cargo.lock;
+    };
+  };
+
   
 in pkgs.mkShell {
   packages = [
+    #dev
+    rhetenorStatistics
+    pkgs.antigravity
+    pkgs.vsce
+    pkgs.nodejs_20
+    pkgs.nodePackages.npm
+    pkgs.nodePackages.typescript
+    pkgs.nodePackages.typescript-language-server
+
+    #runtime
     pythonEnv_didius
     pythonEnv_rhetenor
     myRust

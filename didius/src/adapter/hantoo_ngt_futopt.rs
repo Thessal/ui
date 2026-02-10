@@ -82,7 +82,7 @@ impl HantooNightAdapter {
         self.debug_ws.store(enabled, Ordering::Relaxed);
     }
 
-    pub fn set_monitor(&self, sender: mpsc::Sender<IncomingMessage>) {
+    pub(crate) fn set_monitor_internal(&self, sender: mpsc::Sender<IncomingMessage>) {
         let mut guard = self.sender.lock().unwrap();
         *guard = Some(sender);
     }
@@ -289,7 +289,12 @@ impl HantooNightAdapter {
 
     fn process_event(event: NightIncomingEvent, order_map: &Mutex<HashMap<String, NightOrderInfo>>) -> Option<IncomingMessage> {
         match event {
-            NightIncomingEvent::Trade(t) => Some(IncomingMessage::Trade(t)),
+            NightIncomingEvent::Trade(t) => Some(IncomingMessage::MarketTrade {
+                symbol: t.symbol,
+                price: t.price,
+                quantity: t.quantity,
+                timestamp: t.timestamp,
+            }),
             NightIncomingEvent::Snapshot(s) => Some(IncomingMessage::OrderBookSnapshot(s)),
             NightIncomingEvent::Notice(n) => {
                 let map = order_map.lock().unwrap();
@@ -310,9 +315,11 @@ impl HantooNightAdapter {
                          
                          let state = OrderState::NEW; // Default to NEW/OPEN
                          
-                         return Some(IncomingMessage::OrderUpdate {
+                         return Some(IncomingMessage::OrderStatus {
                              order_id: client_id.clone(),
                              state,
+                             filled_qty: 0,
+                             filled_price: None,
                              msg: None,
                              updated_at: Local::now().timestamp_millis() as f64 / 1000.0,
                          });
@@ -412,11 +419,21 @@ impl HantooNightAdapter {
 }
 
 impl Adapter for HantooNightAdapter {
+    fn set_monitor(&self, sender: std::sync::mpsc::Sender<IncomingMessage>) {
+        self.set_monitor_internal(sender);
+    }
     fn connect(&self) -> Result<()> {
         // Reuse inner logic to verify token
         let _ = self.inner.get_token()?;
         info!("HantooNightAdapter connected (Token valid)");
         // No WS for Night for now
+        Ok(())
+    }
+
+    fn subscribe(&self, symbols: &[String]) -> Result<()> {
+        for s in symbols {
+            self.subscribe(s)?;
+        }
         Ok(())
     }
 

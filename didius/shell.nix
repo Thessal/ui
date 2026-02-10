@@ -9,7 +9,7 @@ let
 
   didiusPackage = python.pkgs.buildPythonPackage {
     pname = "didius";
-    version = "0.1.0";
+    version = "0.1.3";
     format = "pyproject";
     src = ./.;
     doCheck = false;
@@ -31,11 +31,12 @@ let
 
 in pkgs.mkShell {
   packages = [
-    pythonEnv
+    pkgs.antigravity
+    # pythonEnv
     didiusPackage
     myRust
   ] ++ (with pkgs; [
-    cargo rustc gcc rustfmt clippy rust-analyzer pkg-config
+    cargo rustc gcc rustfmt clippy rust-analyzer pkg-config maturin
     # rustc 1.91.1 (ed61e7d7e 2025-11-07) (built from a source tarball)
   ]) ++ (with python.pkgs; [
     matplotlib                                                                

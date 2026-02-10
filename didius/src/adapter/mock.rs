@@ -6,6 +6,7 @@ use anyhow::Result;
 use std::sync::Mutex;
 use rust_decimal::Decimal;
 // use std::collections::HashMap;
+use crate::adapter::IncomingMessage;
 
 pub struct MockAdapter {
     account_state: Mutex<AccountState>,
@@ -58,5 +59,13 @@ impl Adapter for MockAdapter {
 
     fn modify_order(&self, _order_id: &str, _price: Option<Decimal>, _qty: Option<i64>) -> Result<bool> {
         Ok(true) //TODO: what if the user want to modify whole remaining orders? Does the API support partial modify?
+    }
+
+    fn subscribe(&self, _symbols: &[String]) -> Result<()> {
+        Ok(())
+    }
+
+    fn set_monitor(&self, _sender: std::sync::mpsc::Sender<IncomingMessage>) {
+        // Mock adapter currently ignores the monitor, or we could store it to send mock messages later
     }
 }

@@ -2,7 +2,7 @@ pub mod order;
 pub mod order_book;
 pub mod account;
 pub mod engine;
-pub mod interface;
+// pub mod interface;
 
 use pyo3::prelude::*;
 
@@ -16,8 +16,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // OrderBook and AccountState are no longer exposed directly.
     // They are accessed via Interface returning Dicts.
 
-    m.add_class::<interface::Interface>()?;
-    m.add_class::<crate::adapter::interface::PyHantooAdapter>()?;
-    m.add_class::<crate::adapter::interface::PyHantooNightAdapter>()?;
+    // m.add_class::<interface::Interface>()?;
+    // m.add_class::<crate::adapter::interface::PyHantooAdapter>()?;
+    // m.add_class::<crate::adapter::interface::PyHantooNightAdapter>()?;
     Ok(())
 }

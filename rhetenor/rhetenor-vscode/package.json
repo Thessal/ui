@@ -1,0 +1,90 @@
+{
+    "name": "rhetenor-vscode",
+    "displayName": "Rhetenor",
+    "description": "VS Code extension for Rhetenor (Butterflow) strategies",
+    "version": "0.0.1",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/example/rhetenor-vscode"
+    },
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:butterflow"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "languages": [
+            {
+                "id": "butterflow",
+                "aliases": [
+                    "Butterflow",
+                    "butterflow"
+                ],
+                "extensions": [
+                    ".bf"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "butterflow",
+                "scopeName": "source.butterflow",
+                "path": "./syntaxes/butterflow.tmLanguage.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "rhetenor.runBacktest",
+                "title": "Rhetenor: Run Backtest"
+            }
+        ],
+        "configuration": {
+            "title": "Rhetenor",
+            "properties": {
+                "rhetenor.pythonPath": {
+                    "type": "string",
+                    "default": "python",
+                    "description": "Path to the Python interpreter to use for running Rhetenor (e.g. 'python', 'python3', or absolute path)."
+                },
+                "rhetenor.modulePath": {
+                    "type": "string",
+                    "default": "rhetenor",
+                    "description": "Python module name or path for Rhetenor."
+                }
+            }
+        }
+    },
+    "dependencies": {
+        "lightweight-charts": "^4.1.0"
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "node copy-libs.js && tsc -p ./",
+        "watch": "node copy-libs.js && tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.85.0",
+        "@types/glob": "^7.2.0",
+        "@types/mocha": "^10.0.6",
+        "@types/node": "18.x",
+        "@typescript-eslint/eslint-plugin": "^6.15.0",
+        "@typescript-eslint/parser": "^6.15.0",
+        "eslint": "^8.56.0",
+        "glob": "^7.2.0",
+        "mocha": "^10.2.0",
+        "typescript": "^5.3.3",
+        "@vscode/test-electron": "^2.3.8"
+    },
+    "overrides": {
+        "minimatch": "^5.1.0"
+    }
+}

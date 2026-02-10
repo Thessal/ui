@@ -16,7 +16,7 @@ RUSTFLAGS="-L /usr/lib/x86_64-linux-gnu -l python3.13"  cargo test --test oms_ha
 ### Python 
 ```
 nix-shell
-marutin build
+maturin build
 exit
 nix-shell
 ```

@@ -1,5 +1,15 @@
 from typing import Any, Dict, List, Optional, Iterator, Tuple
-from butterflow import lex, Parser, TypeChecker, Builder, Runtime
+try:
+    from butterflow import lex, Parser, TypeChecker, Builder, Runtime
+except ImportError:
+    print("Warning: butterflow not found. Using mock classes.")
+    class Mock: pass
+    lex = Mock
+    Parser = Mock
+    TypeChecker = Mock
+    Builder = Mock
+    Runtime = Mock
+
 import numpy as np
 import pandas as pd
 import datetime

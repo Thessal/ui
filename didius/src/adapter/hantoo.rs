@@ -18,7 +18,7 @@ use std::sync::mpsc;
 use std::collections::HashMap;
 use tungstenite::{connect, Message};
 use url::Url;
-use crate::adapter::{IncomingMessage, Trade};
+use crate::adapter::IncomingMessage;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use crate::oms::order_book::{OrderBookSnapshot};
@@ -120,7 +120,7 @@ impl HantooAdapter {
         &self.client
     }
 
-    pub fn set_monitor(&self, sender: mpsc::Sender<IncomingMessage>) {
+    pub(crate) fn set_monitor_internal(&self, sender: mpsc::Sender<IncomingMessage>) {
         let mut guard = self.sender.lock().unwrap();
         *guard = Some(sender);
     }
@@ -455,12 +455,12 @@ impl HantooAdapter {
                     let price = Decimal::from_str(fields[1]).unwrap_or_default();
                     let qty = if fields.len() > 12 { fields[12].parse().unwrap_or(0) } else { 0 };
                    
-                    return Some(IncomingMessage::Trade(Trade {
+                    return Some(IncomingMessage::MarketTrade {
                         symbol: symbol.to_string(),
                         price,
                         quantity: qty,
                         timestamp: Local::now().timestamp_millis() as f64 / 1000.0,
-                    }));
+                    });
                 }
             },
             "H0STASP0" => { // Asking Price
@@ -525,9 +525,11 @@ impl HantooAdapter {
                                };
                                
                                info!("Hantoo Parse: Update for {}, state={:?}", client_id, state);
-                               return Some(IncomingMessage::OrderUpdate {
+                               return Some(IncomingMessage::OrderStatus {
                                    order_id: client_id.clone(),
                                    state,
+                                   filled_qty: 0,
+                                   filled_price: None,
                                    msg: None,
                                    updated_at: Local::now().timestamp_millis() as f64 / 1000.0,
                                });
@@ -580,6 +582,9 @@ impl HantooAdapter {
 }
 
 impl Adapter for HantooAdapter {
+    fn set_monitor(&self, sender: std::sync::mpsc::Sender<IncomingMessage>) {
+        self.set_monitor_internal(sender);
+    }
     fn connect(&self) -> Result<()> {
         let _ = self.get_token()?;
         info!("HantooAdapter connected (token verified)");
@@ -589,6 +594,10 @@ impl Adapter for HantooAdapter {
         }
 
         Ok(())
+    }
+    
+    fn subscribe(&self, symbols: &[String]) -> Result<()> {
+        self.subscribe_market(symbols)
     }
 
     fn disconnect(&self) -> Result<()> {

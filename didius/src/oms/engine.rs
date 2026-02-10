@@ -135,7 +135,7 @@ impl OMSEngine {
 
     pub fn modify_order_internal(&self, order_id: String, price: Option<Decimal>) -> anyhow::Result<()> {
         let mut orders = self.orders.lock().unwrap();
-        let (qty, symbol) = if let Some(order) = orders.get(&order_id) {
+        let (qty, _symbol) = if let Some(order) = orders.get(&order_id) {
              let remaining = order.quantity - order.filled_quantity; 
              if remaining <= 0 { return Ok(()); }
              (remaining, order.symbol.clone())
@@ -446,7 +446,7 @@ impl OMSEngine {
 
     pub fn on_order_book_information(&self, msg: IncomingMessage) -> PyResult<()> {
         let (symbol, delta_opt, snapshot_opt) = match msg {
-            IncomingMessage::OrderBookDelta(d) => (d.symbol.clone(), Some(d), None),
+            IncomingMessage::OrderBookUpdate{symbol, delta} => (symbol, Some(delta), None),
             IncomingMessage::OrderBookSnapshot(s) => (s.symbol.clone(), None, Some(s)),
             _ => return Ok(()),
         };
@@ -521,14 +521,14 @@ impl OMSEngine {
                      let msg_clone = msg.clone();
                      engine.logger.lock().unwrap().log_lazy("MARKET_DATA".to_string(), Box::new(move || {
                         match &msg_clone {
-                            IncomingMessage::OrderBookDelta(d) => {
-                                let (bp, bv): (Vec<_>, Vec<_>) = d.bids.iter().map(|(p, q)| (p.to_string(), *q)).unzip();
-                                let (ap, av): (Vec<_>, Vec<_>) = d.asks.iter().map(|(p, q)| (p.to_string(), *q)).unzip();
+                            IncomingMessage::OrderBookUpdate{symbol, delta} => {
+                                let (bp, bv): (Vec<_>, Vec<_>) = delta.bids.iter().map(|(p, q)| (p.to_string(), *q)).unzip();
+                                let (ap, av): (Vec<_>, Vec<_>) = delta.asks.iter().map(|(p, q)| (p.to_string(), *q)).unzip();
                                 
                                 serde_json::json!({
                                     "type": "OrderBookDelta", 
-                                    "symbol": d.symbol, 
-                                    "update_id": d.update_id,
+                                    "symbol": symbol, 
+                                    "update_id": delta.update_id,
                                     "data": {
                                         "bp": bp,
                                         "bv": bv,
@@ -537,7 +537,7 @@ impl OMSEngine {
                                     }
                                 })
                             },
-                            IncomingMessage::Trade(t) => serde_json::json!({"type": "Trade", "symbol": t.symbol, "price": t.price.to_string(), "qty": t.quantity}),
+                            IncomingMessage::MarketTrade{symbol, price, quantity, ..} => serde_json::json!({"type": "Trade", "symbol": symbol, "price": price.to_string(), "qty": quantity}),
                             IncomingMessage::Execution{order_id, fill_qty, ..} => serde_json::json!({"type": "Execution", "order_id": order_id, "qty": fill_qty}),
                             IncomingMessage::OrderBookSnapshot(s) => serde_json::json!({
                                 "type": "OrderBookSnapshot", 
@@ -545,22 +545,25 @@ impl OMSEngine {
                                 "bids": s.bids,
                                 "asks": s.asks 
                             }),
-                            IncomingMessage::OrderUpdate{order_id, state, ..} => serde_json::json!({"type": "OrderUpdate", "order_id": order_id, "state": format!("{:?}", state)}),
+                            IncomingMessage::OrderStatus{order_id, state, ..} => serde_json::json!({"type": "OrderUpdate", "order_id": order_id, "state": format!("{:?}", state)}),
+                            _ => serde_json::json!({"type": "Unknown"}),
                         }
                     }));
                 }
                 match msg {
-                    IncomingMessage::OrderBookDelta(_) | IncomingMessage::OrderBookSnapshot(_) => {
+                    IncomingMessage::OrderBookUpdate{..} | IncomingMessage::OrderBookSnapshot(_) => {
                          let _ = engine.on_order_book_information(msg);
                     },
-                    IncomingMessage::Trade(_trade) => {
+                    IncomingMessage::MarketTrade{..} => {
+                        // Handle market trade if needed
                     },
                     IncomingMessage::Execution{order_id, fill_qty, fill_price} => {
                          engine.on_trade_update(&order_id, fill_qty, fill_price);
                     },
-                    IncomingMessage::OrderUpdate{order_id, state, msg, ..} => {
+                    IncomingMessage::OrderStatus{order_id, state, msg, ..} => {
                         engine.on_order_status_update(&order_id, state, msg);
-                    }
+                    },
+                    _ => {}
                 }
             }
         });
